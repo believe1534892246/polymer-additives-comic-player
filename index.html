@@ -1,0 +1,3420 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>高分子材料漫画：中英文连续播放器</title>
+  <link rel="preload" as="image" href="player_assets/slide001.webp" fetchpriority="high">
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #647084;
+      --line: #d7deea;
+      --primary: #1e58a8;
+      --primary-strong: #163f79;
+      --accent: #12806b;
+      --danger: #9b2c2c;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      padding-bottom: 132px;
+    }
+    .topbar {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px clamp(14px, 2.5vw, 28px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.96);
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      backdrop-filter: blur(12px);
+    }
+    .heading { min-width: 0; display: grid; gap: 3px; }
+    .eyebrow { color: var(--muted); font-size: 13px; }
+    h1 {
+      margin: 0;
+      font-size: clamp(19px, 2vw, 27px);
+      line-height: 1.25;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+    .counter {
+      flex: 0 0 auto;
+      min-width: 76px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 10px;
+      background: #fff;
+      font-size: 14px;
+    }
+    .stage {
+      position: relative;
+      height: calc(100vh - 204px);
+      min-height: 300px;
+      padding: 4px clamp(4px, 0.8vw, 10px);
+      display: grid;
+      place-items: center;
+    }
+    .slide-image {
+      display: block;
+      width: 92%;
+      height: 92%;
+      max-width: none;
+      max-height: 100%;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 14px 34px rgba(23, 32, 51, 0.12);
+    }
+    .caption {
+      position: absolute;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      width: min(1120px, calc(100% - 36px));
+      min-height: 46px;
+      max-height: 116px;
+      overflow: hidden;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 8px;
+      background: rgba(10, 18, 32, 0.78);
+      color: #fff;
+      font-size: clamp(16px, 1.55vw, 22px);
+      line-height: 1.45;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+    .caption.visible { display: flex; }
+    .controls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      min-height: 132px;
+      display: grid;
+      grid-template-columns: minmax(220px, 360px) auto minmax(230px, 1fr) minmax(220px, 0.85fr);
+      gap: 8px 12px;
+      align-items: center;
+      padding: 9px clamp(10px, 2vw, 22px);
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: 0 -12px 32px rgba(23, 32, 51, 0.1);
+      backdrop-filter: blur(14px);
+      transition: transform 0.18s ease, opacity 0.18s ease, visibility 0.18s ease;
+    }
+    .panel-toggle {
+      position: fixed;
+      right: clamp(12px, 2vw, 24px);
+      bottom: 142px;
+      z-index: 7;
+      min-width: 72px;
+      min-height: 34px;
+      border-color: #24324a;
+      background: #172033;
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(23, 32, 51, 0.18);
+    }
+    .panel-toggle:hover { background: #24324a; border-color: #24324a; }
+    label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+    select {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      padding: 0 12px;
+      font: inherit;
+    }
+    .button-row, .toggle-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .button-row { justify-content: center; }
+    .toggle-row {
+      grid-column: 1 / -1;
+      justify-content: center;
+      padding-top: 2px;
+    }
+    button {
+      min-width: 66px;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, select:hover { border-color: #9fb4d1; background: #f8fafc; }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(30, 88, 168, 0.24);
+      outline-offset: 2px;
+    }
+    .primary { min-width: 92px; border-color: var(--primary); background: var(--primary); color: #fff; font-weight: 700; }
+    .primary:hover { border-color: var(--primary-strong); background: var(--primary-strong); }
+    .active { border-color: var(--accent); background: #eaf7f3; color: #0a6656; font-weight: 700; }
+    .off.active { border-color: var(--danger); background: #fff4f4; color: var(--danger); }
+    .progress-block { min-width: 0; display: grid; gap: 5px; }
+    .progress-head { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
+    input[type="range"] { width: 100%; accent-color: var(--primary); }
+    .total-bar { height: 8px; border-radius: 999px; background: #e6ebf3; overflow: hidden; }
+    .total-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.16s ease; }
+    audio { display: none; }
+    @media (max-width: 980px) {
+      body { padding-bottom: 220px; }
+      .stage { height: calc(100vh - 292px); min-height: 260px; }
+      .slide-image { max-height: 100%; }
+      .controls { min-height: 220px; grid-template-columns: 1fr; gap: 8px; }
+      .button-row { order: 2; }
+      .progress-block { order: 3; }
+      label { order: 1; }
+      .toggle-row { order: 4; }
+    }
+    @media (max-width: 560px) {
+      body { padding-bottom: 278px; }
+      .counter { display: none; }
+      .stage { height: calc(100vh - 344px); min-height: 240px; padding: 8px; }
+      .slide-image { max-height: 100%; }
+      .controls { min-height: 278px; padding: 10px; }
+      button { min-width: 62px; }
+      .primary { min-width: 86px; }
+      .caption { bottom: 12px; width: calc(100% - 22px); font-size: 15px; }
+    }
+    @media (orientation: landscape) and (max-height: 720px) {
+      body { padding-bottom: 108px; }
+      .topbar { min-height: 50px; padding-top: 6px; padding-bottom: 6px; }
+      h1 { font-size: clamp(17px, 1.6vw, 22px); }
+      .counter { padding: 5px 8px; font-size: 12px; }
+      .stage { height: calc(100vh - 170px); min-height: 0; padding: 2px clamp(8px, 1vw, 16px) 8px; }
+      .slide-image { width: 90%; height: 90%; }
+      .caption { bottom: 10px; min-height: 36px; max-height: 86px; padding: 7px 12px; font-size: clamp(13px, 1.35vw, 18px); }
+      .controls {
+        min-height: 108px;
+        grid-template-columns: minmax(170px, 280px) auto minmax(180px, 1fr) minmax(170px, 0.85fr);
+        gap: 5px 8px;
+        padding: 7px clamp(8px, 1.6vw, 16px);
+      }
+      label { gap: 2px; font-size: 11px; }
+      select { min-height: 30px; padding: 0 8px; }
+      button { min-width: 58px; min-height: 30px; font-size: 12px; }
+      .primary { min-width: 78px; }
+      .toggle-row { gap: 5px; padding-top: 0; }
+      .progress-block { gap: 3px; }
+      .progress-head { font-size: 11px; }
+      .total-bar { height: 6px; }
+      .panel-toggle { bottom: 116px; min-width: 62px; min-height: 30px; font-size: 12px; }
+    }
+    body.controls-collapsed {
+      padding-bottom: 48px;
+    }
+    body.controls-collapsed .stage {
+      height: calc(100vh - 112px);
+      min-height: 260px;
+    }
+    body.controls-collapsed .slide-image {
+      width: 90%;
+      height: 90%;
+    }
+    body.controls-collapsed .controls {
+      transform: translateY(calc(100% + 10px));
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    body.controls-collapsed .panel-toggle {
+      bottom: 10px;
+    }
+    @media (orientation: landscape) and (max-height: 720px) {
+      body.controls-collapsed { padding-bottom: 42px; }
+      body.controls-collapsed .stage { height: calc(100vh - 96px); min-height: 0; padding-bottom: 8px; }
+      body.controls-collapsed .slide-image { width: 90%; height: 90%; }
+      body.controls-collapsed .panel-toggle { bottom: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="heading">
+      <div class="eyebrow" id="kicker">第 1 张 / 共 49 张</div>
+      <h1 id="title">1.1 助剂在塑料和橡胶加工中的地位</h1>
+    </div>
+    <div class="counter" id="counter">1 / 49</div>
+  </header>
+  <main class="stage" aria-label="当前漫画页">
+    <img id="slideImage" class="slide-image" src="player_assets/slide001.webp" alt="第1张：1.1 助剂在塑料和橡胶加工中的地位" decoding="async" fetchpriority="high">
+    <div class="caption" id="caption" aria-live="polite"></div>
+  </main>
+  <section class="controls" aria-label="播放控制">
+    <label>
+      <span>主题</span>
+      <select id="topicSelect"></select>
+    </label>
+    <div class="button-row">
+      <button type="button" id="prevBtn">上一页</button>
+      <button type="button" class="primary" id="playBtn">连续播放</button>
+      <button type="button" id="nextBtn">下一页</button>
+    </div>
+    <div class="progress-block" aria-label="单页播放进度">
+      <div class="progress-head">
+        <span>单页播放进度</span>
+        <span><span id="currentTime">00:00</span> / <span id="duration">00:00</span></span>
+      </div>
+      <input id="pageProgress" type="range" min="0" max="1000" value="0" aria-label="单页播放进度">
+    </div>
+    <div class="progress-block" aria-label="总进度">
+      <div class="progress-head">
+        <span>总进度</span>
+        <span id="totalTime">00:00 / 00:00</span>
+      </div>
+      <div class="total-bar"><div class="total-fill" id="totalFill"></div></div>
+    </div>
+    <div class="toggle-row" aria-label="语音和字幕">
+      <button type="button" id="voiceZhBtn" class="active">中文音频</button>
+      <button type="button" id="voiceEnBtn">English Audio</button>
+      <button type="button" id="subZhBtn" class="active">中文字幕</button>
+      <button type="button" id="subEnBtn">English Captions</button>
+      <button type="button" id="subOffBtn" class="off">关闭字幕</button>
+    </div>
+  </section>
+  <button type="button" id="panelToggleBtn" class="panel-toggle" aria-expanded="true" aria-label="折叠播放控制区">折叠</button>
+  <audio id="audio" preload="metadata" src="player_assets/slide001_zh.mp3"></audio>
+  <script>
+    const slides = [
+      {
+            "id": "slide001",
+            "index": 1,
+            "number": "1.1",
+            "title": "1.1 助剂在塑料和橡胶加工中的地位",
+            "titleEn": "1.1 The Role of Additives in Plastic and Rubber Processing",
+            "image": "player_assets/slide001.webp",
+            "audio": {
+                  "zh": "player_assets/slide001_zh.mp3",
+                  "en": "player_assets/slide001_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide001_zh.vtt",
+                  "en": "player_assets/slide001_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26256,
+                              "text": "大家好，这幅图说明的是助剂为什么在塑料和橡胶加工中不可缺少。 塑料瓶、管材、轮胎和手套等制品，都要经过配合、塑炼或混炼、成型等步骤。 整个生产过程离不开三项基本要素：聚合物、助剂和加工设备。 助剂虽然用量通常不大，却能明显改善加工条件。"
+                        },
+                        {
+                              "start": 26256,
+                              "end": 52152,
+                              "text": "没有助剂时，物料可能黏度高、流动困难、能耗大； 合理加入助剂后，流动更顺畅，加工更稳定，效率也更高。 助剂还能让制品更结实、耐冲击、耐热并延长寿命。 增塑剂、稳定剂、阻燃剂、抗静电剂等不同品种，分别赋予材料柔软、稳定、阻燃和抗静电等性能。"
+                        },
+                        {
+                              "start": 52152,
+                              "end": 73247,
+                              "text": "不同聚合物对助剂的依赖程度不同，热塑性塑料和橡胶往往需要更多品种和更高用量。 橡胶硫化还需要硫化剂、促进剂、活性剂和防焦剂共同配合。 概括来说，助剂与聚合物合理配合，才能得到满足实际用途的改性材料。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 32376,
+                              "text": "Hello everyone. This page explains why additives are indispensable in the processing of plastics and rubber. Products such as plastic bottles, pipes, tires, and gloves all go through compounding, plasticating or mixing, and forming. The whole production process depends on three basic elements: polymer, additives, and processing equipment. Although additives are usually used in relatively small amounts, they can greatly improve processing conditions."
+                        },
+                        {
+                              "start": 32376,
+                              "end": 59784,
+                              "text": "Without additives, the material may have high viscosity, poor flow, high energy consumption, and unstable processing. With a suitable additive system, flow becomes smoother, processing becomes more stable, and efficiency improves. Additives can also make products stronger, more impact resistant, more heat resistant, and longer lasting. Different polymers depend on additives to different degrees."
+                        },
+                        {
+                              "start": 59784,
+                              "end": 79703,
+                              "text": "Thermoplastics and rubber often need more additive types and higher dosages. Rubber vulcanization also requires vulcanizing agents, accelerators, activators, and scorch retarders to work together. In short, only when additives and polymers are properly matched can we obtain modified materials that meet real application needs."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 73.247,
+                  "en": 79.703
+            },
+            "alt": "第1张：1.1 助剂在塑料和橡胶加工中的地位"
+      },
+      {
+            "id": "slide002",
+            "index": 2,
+            "number": "1.2",
+            "title": "1.2 助剂的类别和作用",
+            "titleEn": "1.2 Categories and Functions of Additives",
+            "image": "player_assets/slide002.webp",
+            "audio": {
+                  "zh": "player_assets/slide002_zh.mp3",
+                  "en": "player_assets/slide002_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide002_zh.vtt",
+                  "en": "player_assets/slide002_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 24528,
+                              "text": "随着塑料和橡胶品种、加工技术与应用领域不断增加，助剂也形成了数量庞大、功能明确的体系。 按照作用来分，首先是稳定化助剂，它们像防护盾一样，减缓光、热、氧、辐射和微生物引起的老化，常见的有抗氧剂、光稳定剂、热稳定剂和防霉剂。"
+                        },
+                        {
+                              "start": 24528,
+                              "end": 46367,
+                              "text": "第二类用于改善力学性能，例如硫化体系助剂、补强剂、填充剂、偶联剂和抗冲击剂，可提高强度、硬度、刚性、变形能力或冲击强度。 第三类改善加工性能，包括润滑剂、脱模剂、塑解剂和软化剂，使物料更易流动和成型。"
+                        },
+                        {
+                              "start": 46367,
+                              "end": 68758,
+                              "text": "第四类用于柔软化与轻质化，其中增塑剂让硬质材料变柔软，发泡剂则形成泡孔，制得泡沫塑料、合成木材和海绵橡胶。 此外，还有改善表面性能和外观的润滑剂、抗静电剂、防雾滴剂，以及降低可燃性的阻燃剂和烟雾抑制剂。"
+                        },
+                        {
+                              "start": 68758,
+                              "end": 78285,
+                              "text": "实际生产中，一种聚合物常需多种助剂协同使用，缺少合理的助剂体系，材料往往难以发挥应有价值。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 29280,
+                              "text": "As the varieties of plastics and rubber, processing technologies, and application fields continue to expand, additives have formed a large and function-oriented system. The first group is stabilizing additives. They act like a protective shield and slow down aging caused by light, heat, oxygen, radiation, or microorganisms. Common examples include antioxidants, light stabilizers, heat stabilizers, and mildew inhibitors."
+                        },
+                        {
+                              "start": 29280,
+                              "end": 59376,
+                              "text": "The second group improves mechanical properties, such as vulcanization additives, reinforcing agents, fillers, coupling agents, and impact modifiers. They improve strength, hardness, rigidity, deformation ability, or impact resistance. The third group improves processing performance, including lubricants, mold release agents, peptizers, and softeners, which help materials flow and form more easily."
+                        },
+                        {
+                              "start": 59376,
+                              "end": 85200,
+                              "text": "The fourth group is used for softening and lightweighting: plasticizers make rigid materials flexible, while foaming agents create cells in foams, synthetic wood, and sponge rubber. There are also additives that improve surface properties and appearance, such as lubricants, antistatic agents, and antifogging agents, as well as flame retardants and smoke suppressants that reduce combustibility."
+                        },
+                        {
+                              "start": 85200,
+                              "end": 96215,
+                              "text": "In actual production, one polymer often requires several additives to work together. Without a reasonable additive system, the material cannot show its intended value."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 78.285,
+                  "en": 96.215
+            },
+            "alt": "第2张：1.2 助剂的类别和作用"
+      },
+      {
+            "id": "slide003",
+            "index": 3,
+            "number": "1.3",
+            "title": "1.3 助剂的应用",
+            "titleEn": "1.3 Application of Additives",
+            "image": "player_assets/slide003.webp",
+            "audio": {
+                  "zh": "player_assets/slide003_zh.mp3",
+                  "en": "player_assets/slide003_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide003_zh.vtt",
+                  "en": "player_assets/slide003_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 25896,
+                              "text": "助剂的应用不是简单地“加进去”就可以，而是一项需要综合判断的配方技术。 第一要看助剂与聚合物的配伍性，包括相容性和稳定性。 相容性好，助剂才能长期均匀存在； 相容性差，就可能发生固体喷霜或液体析出，既影响外观，也削弱性能。 第二要关注耐久性。"
+                        },
+                        {
+                              "start": 25896,
+                              "end": 56760,
+                              "text": "助剂可能因挥发、被介质抽出或向相邻材料迁移而损失。 第三要考虑加工适应性，助剂应能承受加工温度和时间，不易分解、挥发或升华，也不能腐蚀设备和模具。 第四要服从制品用途：食品包装、玩具、电线、汽车部件和医疗用品，对外观、颜色、气味、电性能、耐候性与毒性的要求并不相同。"
+                        },
+                        {
+                              "start": 56760,
+                              "end": 77975,
+                              "text": "最后还要处理好助剂之间的协同与相抗。 配合得当可以相互增效，选择不当则会彼此削弱，甚至引起化学反应、变色或开裂。 因此，选用助剂要同时把握配伍性、耐久性、加工条件、制品用途以及助剂间相互作用这五个要点。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 27504,
+                              "text": "Using additives is not simply a matter of adding them into a formulation. It is a compounding technology that requires comprehensive judgment. The first point is compatibility with the polymer, including both miscibility and stability. If compatibility is good, the additive can remain uniformly and stably in the product. If compatibility is poor, the product may show blooming or liquid exudation, which harms appearance and performance."
+                        },
+                        {
+                              "start": 27504,
+                              "end": 51840,
+                              "text": "The second point is durability. Additives may be lost through volatilization, extraction by media, or migration into neighboring materials. The third point is processing adaptability. Additives must tolerate processing temperature and time, and should not decompose, volatilize, sublime, or corrode equipment and molds. The fourth point is product use."
+                        },
+                        {
+                              "start": 51840,
+                              "end": 79848,
+                              "text": "Food packaging, toys, wires, automotive parts, and medical products have different requirements for appearance, color, odor, electrical properties, weatherability, and toxicity. Finally, we must handle synergy and antagonism among additives. Proper matching can enhance performance, while poor matching may weaken effects or even cause chemical reactions, discoloration, or cracking."
+                        },
+                        {
+                              "start": 79848,
+                              "end": 91295,
+                              "text": "Therefore, additive selection should always consider compatibility, durability, processing conditions, product use, and interactions among additives."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 77.975,
+                  "en": 91.295
+            },
+            "alt": "第3张：1.3 助剂的应用"
+      },
+      {
+            "id": "slide004",
+            "index": 4,
+            "number": "1.4",
+            "title": "1.4 助剂的发展概况",
+            "titleEn": "1.4 Development of the Additive Industry",
+            "image": "player_assets/slide004.webp",
+            "audio": {
+                  "zh": "player_assets/slide004_zh.mp3",
+                  "en": "player_assets/slide004_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide004_zh.vtt",
+                  "en": "player_assets/slide004_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 27168,
+                              "text": "助剂工业与合成材料工业同步发展，是一个相对年轻但十分重要的化工领域。 早期助剂主要服务于橡胶工业，我国助剂生产从解放初期起步，先有少量橡胶防老剂和促进剂，随后逐步形成聚氯乙烯用增塑剂和热稳定剂等产品体系。 自二十世纪七十年代以来，助剂行业出现了几项明显变化。"
+                        },
+                        {
+                              "start": 27168,
+                              "end": 52608,
+                              "text": "第一，大吨位品种向大型化和集中生产发展，增塑剂与橡胶助剂尤为突出。 第二，产品结构从高毒、低效逐步转向低毒、高效。 第三，阻燃剂和填充剂快速发展。 第四，带有功能性基团的齐聚物进入助剂领域，可以通过增塑、增强或交联等多种方式改性聚合物。"
+                        },
+                        {
+                              "start": 52608,
+                              "end": 66671,
+                              "text": "例如，低聚物既能在加工时起到增塑和增强作用，也能在高温成型时参与交联。 由此可见，现代助剂正从单一功能转向高效、低毒、复合和反应型方向发展。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 27480,
+                              "text": "The additive industry developed along with the synthetic materials industry. It is relatively young, but it is a very important chemical field. Early additives mainly served the rubber industry. In China, additive production began in the early years after liberation, first with small amounts of rubber antioxidants and accelerators, and then gradually expanded into products such as PVC plasticizers and heat stabilizers."
+                        },
+                        {
+                              "start": 27480,
+                              "end": 54360,
+                              "text": "Since the 1970s, several major changes have appeared in the additive industry. First, large-volume products have moved toward large-scale and centralized production, especially plasticizers and rubber additives. Second, product structure has gradually shifted from highly toxic and low-efficiency varieties to low-toxicity and high-efficiency products. Third, flame retardants and fillers have developed rapidly."
+                        },
+                        {
+                              "start": 54360,
+                              "end": 83952,
+                              "text": "Fourth, oligomers with functional groups have entered the additive field and can modify polymers through plasticization, reinforcement, or crosslinking. For example, oligomers may provide plasticizing and reinforcing effects during processing, and may also participate in crosslinking during high-temperature forming. Modern additives are therefore moving from single-function products toward efficient, low-toxicity, composite, and reactive systems."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.671,
+                  "en": 83.952
+            },
+            "alt": "第4张：1.4 助剂的发展概况"
+      },
+      {
+            "id": "slide005",
+            "index": 5,
+            "number": "2.1.1",
+            "title": "2.1.1 增塑剂的定义",
+            "titleEn": "2.1.1 Definition of Plasticizers",
+            "image": "player_assets/slide005.webp",
+            "audio": {
+                  "zh": "player_assets/slide005_zh.mp3",
+                  "en": "player_assets/slide005_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide005_zh.vtt",
+                  "en": "player_assets/slide005_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23640,
+                              "text": "什么是增塑剂？ 凡是加入聚合物体系后，能够使体系塑性增加的物质，都可以称为增塑剂。 它的主要作用，是削弱聚合物分子链之间的次价键，也就是范德瓦尔斯力，让原本靠得较紧的分子链更容易运动。 分子链活动能力增强后，聚合物的结晶性通常会降低，塑性随之提高。"
+                        },
+                        {
+                              "start": 23640,
+                              "end": 48336,
+                              "text": "宏观性能表现为硬度、模量、转化温度和脆化温度下降，而伸长率、曲挠性与柔韧性提高。 图中的对比很直观：未加增塑剂的材料硬而脆，弯曲时容易折断； 加入适量增塑剂后，材料柔软且富有韧性。 因此，增塑剂虽然添加量相对有限，却能显著改变材料的加工和使用性能。"
+                        },
+                        {
+                              "start": 48336,
+                              "end": 56304,
+                              "text": "理解它的关键，不是把它看成单纯的“软化液”，而是理解它对分子链作用力和运动性的调节。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26784,
+                              "text": "What is a plasticizer? Any substance that increases the plasticity of a polymer system after being added can be called a plasticizer. Its main function is to weaken the secondary bonds between polymer chains, especially van der Waals forces, so that chains that were originally packed closely can move more easily. When chain mobility increases, crystallinity usually decreases and plasticity rises."
+                        },
+                        {
+                              "start": 26784,
+                              "end": 51912,
+                              "text": "In macroscopic properties, hardness, modulus, transition temperature, and brittle temperature decrease, while elongation, flexing ability, and flexibility increase. The comparison in the picture is direct: a material without plasticizer is hard and brittle, and may break when bent. After an appropriate amount of plasticizer is added, the material becomes softer and tougher."
+                        },
+                        {
+                              "start": 51912,
+                              "end": 68975,
+                              "text": "Therefore, although the dosage of plasticizer is limited, it can significantly change both processing and service performance. The key is not to regard it simply as a softening liquid, but to understand how it regulates molecular interaction and chain mobility."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 56.304,
+                  "en": 68.975
+            },
+            "alt": "第5张：2.1.1 增塑剂的定义"
+      },
+      {
+            "id": "slide006",
+            "index": 6,
+            "number": "2.1.2",
+            "title": "2.1.2 增塑剂的分类",
+            "titleEn": "2.1.2 Classification of Plasticizers",
+            "image": "player_assets/slide006.webp",
+            "audio": {
+                  "zh": "player_assets/slide006_zh.mp3",
+                  "en": "player_assets/slide006_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide006_zh.vtt",
+                  "en": "player_assets/slide006_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26448,
+                              "text": "增塑剂可以从相容性、作用方式、性能和化学结构四个角度分类。 按相容性分为主增塑剂与辅助增塑剂。 主增塑剂又叫溶剂型增塑剂，能进入聚合物的非晶区和晶区，可单独使用； 辅助增塑剂主要停留在非晶区，通常要与主增塑剂配合。 按作用方式，可分为内增塑剂和外增塑剂。"
+                        },
+                        {
+                              "start": 26448,
+                              "end": 49535,
+                              "text": "内增塑通过共聚或引入侧链，使增塑单元成为聚合物分子的一部分，迁移和挥发较少； 外增塑则加入低分子或低熔点化合物，通过溶剂化作用提高塑性，本章重点讨论的就是外增塑剂。 按性能可分为通用、耐寒、耐热等类型；"
+                        },
+                        {
+                              "start": 49535,
+                              "end": 70438,
+                              "text": "按化学结构又有邻苯二甲酸酯、脂肪族二元酸酯、磷酸酯、环氧化合物、多元醇酯、含氯增塑剂、聚合型增塑剂、苯多酸酯、石油酯和酰胺等。 分类的目的，是帮助我们根据材料和用途选择最合适的增塑剂。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 31272,
+                              "text": "Plasticizers can be classified from four viewpoints: compatibility, mode of action, performance, and chemical structure. By compatibility, they are divided into primary plasticizers and secondary plasticizers. Primary plasticizers, also called solvent-type plasticizers, can enter both amorphous and crystalline regions and may be used alone. Secondary plasticizers mainly remain in the amorphous region and are usually used together with primary plasticizers."
+                        },
+                        {
+                              "start": 31272,
+                              "end": 57144,
+                              "text": "By mode of action, plasticizers can be internal or external. Internal plasticization introduces plasticizing units into the polymer molecule by copolymerization or side-chain design, so migration and volatilization are limited. External plasticization adds low-molecular or low-melting compounds and improves plasticity through solvation. This chapter mainly discusses external plasticizers."
+                        },
+                        {
+                              "start": 57144,
+                              "end": 85224,
+                              "text": "By performance, plasticizers may be general-purpose, cold-resistant, heat-resistant, and so on. By chemical structure, common types include phthalates, aliphatic dibasic acid esters, phosphates, epoxy compounds, polyol esters, chlorinated plasticizers, polymeric plasticizers, trimellitates, petroleum esters, and amides. Classification helps us choose the most suitable plasticizer for a material and application."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 70.438,
+                  "en": 85.224
+            },
+            "alt": "第6张：2.1.2 增塑剂的分类"
+      },
+      {
+            "id": "slide007",
+            "index": 7,
+            "number": "2.1.3",
+            "title": "2.1.3 增塑剂的性能",
+            "titleEn": "2.1.3 Properties of Plasticizers",
+            "image": "player_assets/slide007.webp",
+            "audio": {
+                  "zh": "player_assets/slide007_zh.mp3",
+                  "en": "player_assets/slide007_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide007_zh.vtt",
+                  "en": "player_assets/slide007_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 25776,
+                              "text": "评价增塑剂，首先看相容性。 只有与树脂相容良好，增塑剂才能均匀、稳定地存在于制品中； 相容性差会导致浑浊、析出和表面缺陷。 其次看耐久性，包括低挥发、低抽出和低迁移，防止增塑剂在加工、接触介质或长期使用中逐渐损失。 增塑剂还要适应加工条件。"
+                        },
+                        {
+                              "start": 25776,
+                              "end": 54672,
+                              "text": "理想产品应降低熔体黏度、缩短塑化时间，在加工温度下不分解、不挥发，也不腐蚀设备和模具。 加入后通常可提高柔韧性、抗冲击性、低温性能和部分电性能，但过量使用也可能造成强度、硬度和耐热性下降。 对于食品包装、药品、玩具和医疗器械等接触型制品，低毒和安全性尤其重要。"
+                        },
+                        {
+                              "start": 54672,
+                              "end": 67247,
+                              "text": "选型时还要平衡经济性。 以PVC为例，增塑剂不足时制品硬、脆、易开裂； 用量适宜时则柔软、耐弯曲、易加工且寿命更长。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 29976,
+                              "text": "When evaluating a plasticizer, the first consideration is compatibility. Only when it is compatible with the resin can it remain uniformly and stably in the product. Poor compatibility may cause turbidity, exudation, and surface defects. The second consideration is durability, including low volatility, low extraction, and low migration, so that the plasticizer is not gradually lost during processing, contact with media, or long-term use."
+                        },
+                        {
+                              "start": 29976,
+                              "end": 59856,
+                              "text": "Plasticizers must also suit processing conditions. An ideal product should reduce melt viscosity, shorten plasticating time, and avoid decomposition, volatilization, or corrosion at processing temperature. After addition, flexibility, impact resistance, low-temperature performance, and some electrical properties usually improve. Excessive dosage, however, may reduce strength, hardness, and heat resistance."
+                        },
+                        {
+                              "start": 59856,
+                              "end": 86520,
+                              "text": "For food packaging, medicines, toys, and medical devices, low toxicity and safety are especially important. Selection must also consider economy. In PVC, insufficient plasticizer makes products hard, brittle, and easy to crack. Proper dosage gives soft PVC good flexibility, bend resistance, processability, and longer service life."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 67.247,
+                  "en": 86.52
+            },
+            "alt": "第7张：2.1.3 增塑剂的性能"
+      },
+      {
+            "id": "slide008",
+            "index": 8,
+            "number": "2.2",
+            "title": "2.2 增塑机理（绪论知识回顾）",
+            "titleEn": "2.2 Plasticization Mechanism: Review of the Introduction",
+            "image": "player_assets/slide008.webp",
+            "audio": {
+                  "zh": "player_assets/slide008_zh.mp3",
+                  "en": "player_assets/slide008_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide008_zh.vtt",
+                  "en": "player_assets/slide008_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23279,
+                              "text": "这幅图适合作为进入增塑剂章节前的复习。 高分子材料广泛用于衣、食、住、行和日常用品，但也可能存在脆性、耐热性差和加工流动性不足等问题，因此需要助剂改善使用与加工性能。 塑料和橡胶加工离不开聚合物、助剂与设备三项要素。"
+                        },
+                        {
+                              "start": 23279,
+                              "end": 45718,
+                              "text": "助剂按功能可分为稳定化、改善力学性能、改善加工性能、柔软轻质化、改善表面外观以及难燃化等类别。 实际选用时，要考察与聚合物的配伍性、助剂耐久性、加工条件适应性、制品用途限制，以及多种助剂之间的协同或相抗。"
+                        },
+                        {
+                              "start": 45718,
+                              "end": 71398,
+                              "text": "从行业发展看，助剂正在向大吨位集中生产、低毒高效、阻燃填充快速发展以及反应型齐聚物多功能化等方向演进。 接下来学习增塑剂，就是把这些通用原则落实到一种重要的柔软化助剂上。 核心提示： 先掌握助剂的一般功能和选用原则，才能正确理解增塑剂的机理与应用。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 30936,
+                              "text": "This page is suitable as a review before entering the plasticizer chapter. Polymer materials are widely used in clothing, food, housing, transportation, and daily products. However, they may also suffer from brittleness, poor heat resistance, and insufficient processing flow. Additives are therefore needed to improve both service and processing performance. Plastic and rubber processing depends on three elements: polymer, additives, and equipment."
+                        },
+                        {
+                              "start": 30936,
+                              "end": 59016,
+                              "text": "According to function, additives include stabilizers, mechanical property modifiers, processing aids, softening and lightweighting agents, surface and appearance modifiers, and flame retardants. In actual selection, we must consider compatibility with the polymer, durability of the additive, adaptability to processing conditions, restrictions from product use, and synergy or antagonism among multiple additives."
+                        },
+                        {
+                              "start": 59016,
+                              "end": 80951,
+                              "text": "From the viewpoint of industry development, additives are moving toward large-scale centralized production, low toxicity and high efficiency, rapid growth of flame retardants and fillers, and multifunctional reactive oligomers. The next topic, plasticizers, applies these general principles to an important class of softening additives."
+                        },
+                        {
+                              "start": 80951,
+                              "end": 92062,
+                              "text": "Key point: first understand the general functions and selection principles of additives, and then the mechanism and application of plasticizers will be easier to understand."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 71.398,
+                  "en": 92.062
+            },
+            "alt": "第8张：2.2 增塑机理（绪论知识回顾）"
+      },
+      {
+            "id": "slide009",
+            "index": 9,
+            "number": "2.3",
+            "title": "绪论至2.3增塑剂种类回顾",
+            "titleEn": "2.3 Review from the Introduction to Plasticizer Types",
+            "image": "player_assets/slide009.webp",
+            "audio": {
+                  "zh": "player_assets/slide009_zh.mp3",
+                  "en": "player_assets/slide009_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide009_zh.vtt",
+                  "en": "player_assets/slide009_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26280,
+                              "text": "这幅图用九个画格串联了绪论和增塑剂前半部分。 高分子材料用途广泛，但常有脆、耐热差或加工困难等缺点，需要加入用量不大却作用关键的助剂。 聚合物、助剂和加工设备缺一不可，助剂可承担稳定、增强、助加工、增塑发泡、改善表面和阻燃等不同任务。"
+                        },
+                        {
+                              "start": 26280,
+                              "end": 54672,
+                              "text": "选用助剂时，要关注配伍性、耐久性、加工适应性、制品用途及助剂之间的相互作用。 行业则朝着规模化、低毒高效和多功能反应型方向发展。 进入增塑剂部分后，我们看到增塑剂通过削弱分子间作用力，提高链段运动性，使硬度、模量和转变温度下降，使伸长率、曲挠性和柔韧性提高。"
+                        },
+                        {
+                              "start": 54672,
+                              "end": 71159,
+                              "text": "按相容性，增塑剂可分为主增塑剂和辅助增塑剂。 主增塑剂相容性好，可进入非晶区和晶区； 辅助增塑剂相容性较弱，主要分布在非晶区，通常与主增塑剂配合。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 22463,
+                              "text": "This page connects the introduction and the first half of the plasticizer chapter through nine panels. Polymer materials have broad applications, but they often have weaknesses such as brittleness, poor heat resistance, or difficult processing. Additives are used in small amounts but play key roles. Polymer, additive, and processing equipment are all indispensable."
+                        },
+                        {
+                              "start": 22463,
+                              "end": 51791,
+                              "text": "Additives may provide stabilization, reinforcement, processing assistance, plasticization, foaming, surface improvement, and flame retardancy. When selecting additives, we need to consider compatibility, durability, processing adaptability, product use, and interactions among additives. The industry is developing toward scale, low toxicity, high efficiency, and multifunctional reactive products."
+                        },
+                        {
+                              "start": 51791,
+                              "end": 79511,
+                              "text": "In the plasticizer section, we learn that plasticizers weaken intermolecular forces and increase segmental mobility, so hardness, modulus, and transition temperature decrease, while elongation, flexing ability, and flexibility increase. By compatibility, plasticizers are divided into primary and secondary plasticizers. Primary plasticizers have good compatibility and can enter both amorphous and crystalline regions."
+                        },
+                        {
+                              "start": 79511,
+                              "end": 89182,
+                              "text": "Secondary plasticizers have weaker compatibility, mainly stay in amorphous regions, and are usually used together with primary plasticizers."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 71.159,
+                  "en": 89.182
+            },
+            "alt": "第9张：绪论至2.3增塑剂种类回顾"
+      },
+      {
+            "id": "slide010",
+            "index": 10,
+            "number": "2.4",
+            "title": "2.4 增塑剂的应用",
+            "titleEn": "2.4 Application of Plasticizers",
+            "image": "player_assets/slide010.webp",
+            "audio": {
+                  "zh": "player_assets/slide010_zh.mp3",
+                  "en": "player_assets/slide010_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide010_zh.vtt",
+                  "en": "player_assets/slide010_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 22487,
+                              "text": "这幅图先回顾助剂在塑料和橡胶加工中的地位，再集中说明增塑剂的应用。 增塑剂加入聚合物后，削弱分子链间的次价键，提高链段运动性，使材料更柔软、更有弹性，同时降低硬度、玻璃化转变温度和脆化温度，改善低温性能与成型加工性。"
+                        },
+                        {
+                              "start": 22487,
+                              "end": 52895,
+                              "text": "增塑剂按相容性可分为主增塑剂和辅助增塑剂，按化学结构可分为酯类、醚类、酮类、烃类、磷酸酯类及其他类型。 实际应用最广的是PVC，此外还用于电线电缆、人造革、地板革、薄膜片材、软管、玩具、密封件和部分医用制品。 以PVC管为例，未增塑的硬质PVC硬度高、脆性大、加工困难；"
+                        },
+                        {
+                              "start": 52895,
+                              "end": 67486,
+                              "text": "加入适量增塑剂后可得到柔软、耐弯曲、低温不易脆化且寿命更长的软质PVC。 应用时必须结合用途选择品种和用量，避免迁移、析出或性能下降。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28464,
+                              "text": "This page first reviews the role of additives in plastic and rubber processing, and then focuses on plasticizer applications. After a plasticizer is added to a polymer, it weakens secondary bonds between chains, increases chain mobility, makes the material softer and more elastic, and lowers hardness, glass transition temperature, and brittle temperature. As a result, low-temperature performance and forming processability are improved."
+                        },
+                        {
+                              "start": 28464,
+                              "end": 61296,
+                              "text": "By compatibility, plasticizers are divided into primary and secondary plasticizers. By chemical structure, they include esters, ethers, ketones, hydrocarbons, phosphates, and other types. The most important application is PVC. They are also used in wires and cables, artificial leather, floor covering, films and sheets, hoses, toys, seals, and some medical products. Take PVC pipe as an example."
+                        },
+                        {
+                              "start": 61296,
+                              "end": 86184,
+                              "text": "Unplasticized rigid PVC has high hardness, high brittleness, and difficult processing. After a proper amount of plasticizer is added, soft PVC becomes flexible, bend resistant, less brittle at low temperature, and longer lasting. In application, both type and dosage must be selected according to product use to avoid migration, exudation, or property loss."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 67.486,
+                  "en": 86.184
+            },
+            "alt": "第10张：2.4 增塑剂的应用"
+      },
+      {
+            "id": "slide011",
+            "index": 11,
+            "number": "2.5",
+            "title": "2.5 邻苯二甲酸的生产工艺",
+            "titleEn": "2.5 Production Process of Phthalic Acid",
+            "image": "player_assets/slide011.webp",
+            "audio": {
+                  "zh": "player_assets/slide011_zh.mp3",
+                  "en": "player_assets/slide011_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide011_zh.vtt",
+                  "en": "player_assets/slide011_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 25776,
+                              "text": "这幅图以前八格回顾绪论和增塑剂基础，最后一格介绍邻苯二甲酸的生产工艺。 高分子材料虽然用途广泛，但要改善加工条件、延长寿命或获得特殊功能，通常需要助剂。 增塑剂就是其中的重要一类，它通过削弱分子间作用力提高塑性，并可分为主增塑剂和辅助增塑剂。"
+                        },
+                        {
+                              "start": 25776,
+                              "end": 46511,
+                              "text": "最后一格给出了邻苯二甲酸的主要工业路线。 原料邻二甲苯先经过气相空气氧化，生成邻苯二甲酸酐； 再经水解得到邻苯二甲酸，也就是图中标注的PA。 该路线原料易得、工艺成熟、产品纯度高，是工业生产邻苯二甲酸的主要方法。"
+                        },
+                        {
+                              "start": 46511,
+                              "end": 61966,
+                              "text": "需要注意，图片标题写的是邻苯二甲酸，而增塑剂工业中常见的许多产品是邻苯二甲酸酯。 邻苯二甲酸及其酸酐是进一步酯化制备相关增塑剂的重要中间体。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 24576,
+                              "text": "This page reviews the introduction and plasticizer basics in the first eight panels, and then introduces the production process of phthalic acid in the last panel. Although polymer materials are widely used, additives are usually needed to improve processing, extend service life, or provide special functions. Plasticizers are one important class of additives."
+                        },
+                        {
+                              "start": 24576,
+                              "end": 49680,
+                              "text": "They increase plasticity by weakening intermolecular forces and may be divided into primary and secondary plasticizers. The last panel shows the main industrial route for phthalic acid. The raw material o-xylene is first oxidized by air in the gas phase to form phthalic anhydride. Phthalic anhydride is then hydrolyzed to produce phthalic acid, shown in the picture as PA."
+                        },
+                        {
+                              "start": 49680,
+                              "end": 74184,
+                              "text": "This route uses available raw materials, has mature technology, and can produce high-purity product, so it is a major industrial route. It should be noted that the picture title is phthalic acid, while many common products in the plasticizer industry are phthalate esters. Phthalic acid and its anhydride are important intermediates for further esterification into related plasticizers."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 61.966,
+                  "en": 74.184
+            },
+            "alt": "第11张：2.5 邻苯二甲酸的生产工艺"
+      },
+      {
+            "id": "slide012",
+            "index": 12,
+            "number": "3.1",
+            "title": "3.1 抗氧剂概述",
+            "titleEn": "3.1 Overview of Antioxidants",
+            "image": "player_assets/slide012.webp",
+            "audio": {
+                  "zh": "player_assets/slide012_zh.mp3",
+                  "en": "player_assets/slide012_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide012_zh.vtt",
+                  "en": "player_assets/slide012_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26040,
+                              "text": "高分子材料在成型、储存和使用过程中会逐渐失去性能，这种不可逆变化叫老化。 生活中常见的农膜变脆、电线绝缘层开裂和轮胎龟裂，都是老化的表现。 除了表面变暗、变色、发黏、变形、裂纹和粉化，材料的溶解性、熔融指数、玻璃化温度、强度及电性能也会发生变化。"
+                        },
+                        {
+                              "start": 26040,
+                              "end": 52176,
+                              "text": "老化原因包括光、热、应力和辐射等物理因素，氧、臭氧、重金属离子和化学介质等化学因素，也包括微生物、昆虫以及材料结构、助剂种类和加工方法等内在因素。 其中光、氧和热最关键，它们会引发聚合物的自动氧化。 氧化降解往往比纯热降解在更低温度下发生。"
+                        },
+                        {
+                              "start": 52176,
+                              "end": 69695,
+                              "text": "抗氧剂能够抑制或延缓自动氧化反应，因此也被称为材料的“防老剂”。 它广泛用于塑料、橡胶、油脂、石油和食品工业。 理想抗氧剂应高效、相容、耐久、低污染、无毒且价格合理。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 18095,
+                              "text": "Polymer materials gradually lose performance during forming, storage, and use. This irreversible change is called aging. Common examples include agricultural film becoming brittle, insulation layers on wires cracking, and tires developing surface cracks."
+                        },
+                        {
+                              "start": 18095,
+                              "end": 46679,
+                              "text": "In addition to darkening, discoloration, tackiness, deformation, cracking, and powdering, properties such as solubility, melt index, glass transition temperature, strength, and electrical performance may also change. Aging is caused by physical factors such as light, heat, stress, and radiation; chemical factors such as oxygen, ozone, heavy metal ions, and chemical media;"
+                        },
+                        {
+                              "start": 46679,
+                              "end": 73823,
+                              "text": "and internal factors such as microorganisms, insects, material structure, additive type, and processing method. Among these, light, oxygen, and heat are the most important because they initiate polymer auto-oxidation. Oxidative degradation often occurs at lower temperature than pure thermal degradation. Antioxidants can inhibit or delay auto-oxidation, so they are also called anti-aging agents."
+                        },
+                        {
+                              "start": 73823,
+                              "end": 89518,
+                              "text": "They are widely used in plastics, rubber, oils, petroleum products, and the food industry. An ideal antioxidant should be efficient, compatible, durable, low-polluting, non-toxic, and reasonably priced."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 69.695,
+                  "en": 89.518
+            },
+            "alt": "第12张：3.1 抗氧剂概述"
+      },
+      {
+            "id": "slide013",
+            "index": 13,
+            "number": "3.2",
+            "title": "3.2 聚合物的氧化和抗氧化机理",
+            "titleEn": "3.2 Polymer Oxidation and Antioxidant Mechanisms",
+            "image": "player_assets/slide013.webp",
+            "audio": {
+                  "zh": "player_assets/slide013_zh.mp3",
+                  "en": "player_assets/slide013_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide013_zh.vtt",
+                  "en": "player_assets/slide013_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 27360,
+                              "text": "聚合物在热、光、氧和应力作用下容易发生自动氧化。 第一步是氧化起始：分子链上的弱键断裂，生成聚合物自由基R自由基。 它迅速与氧结合形成过氧自由基ROO自由基，随后从另一条分子链夺取氢，生成氢过氧化物ROOH和新的自由基，链反应因此不断传播。"
+                        },
+                        {
+                              "start": 27360,
+                              "end": 53496,
+                              "text": "ROOH并不稳定，在热作用下还会分解成烷氧自由基和羟基自由基，引起链分支，使反应进一步加速。 最终结果可能是分子链断裂或交联，表现为变脆、开裂、变色、粉化和力学性能下降。 主抗氧剂主要通过提供活泼氢来终止自由基链反应，常见的有受阻酚和芳香胺；"
+                        },
+                        {
+                              "start": 53496,
+                              "end": 71183,
+                              "text": "辅助抗氧剂则分解ROOH，把危险的过氧化物转化为较稳定产物，常见的有亚磷酸酯和硫代酯。 主、辅抗氧剂复配，可以同时抑制自由基并清除ROOH，形成更完整的协同保护。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 29856,
+                              "text": "Under heat, light, oxygen, and stress, polymers can undergo auto-oxidation. The first step is initiation: weak bonds on the molecular chain break to form polymer radicals. These radicals quickly react with oxygen to form peroxy radicals. The peroxy radicals then abstract hydrogen from another chain, producing hydroperoxide, ROOH, and new radicals. In this way, the chain reaction continues. ROOH is unstable."
+                        },
+                        {
+                              "start": 29856,
+                              "end": 58128,
+                              "text": "Under heat, it decomposes into alkoxy radicals and hydroxyl radicals, causing chain branching and further accelerating the reaction. The final result may be chain scission or crosslinking, expressed as brittleness, cracking, discoloration, powdering, and loss of mechanical properties. Primary antioxidants mainly donate active hydrogen to terminate radical chain reactions. Hindered phenols and aromatic amines are common examples."
+                        },
+                        {
+                              "start": 58128,
+                              "end": 78263,
+                              "text": "Secondary antioxidants decompose ROOH and convert dangerous peroxides into more stable products. Phosphites and thioesters are common examples. When primary and secondary antioxidants are combined, they can suppress radicals and remove ROOH at the same time, forming a more complete synergistic protection system."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 71.183,
+                  "en": 78.263
+            },
+            "alt": "第13张：3.2 聚合物的氧化和抗氧化机理"
+      },
+      {
+            "id": "slide014",
+            "index": 14,
+            "number": "3.3",
+            "title": "3.3 抗氧剂的种类",
+            "titleEn": "3.3 Types of Antioxidants",
+            "image": "player_assets/slide014.webp",
+            "audio": {
+                  "zh": "player_assets/slide014_zh.mp3",
+                  "en": "player_assets/slide014_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide014_zh.vtt",
+                  "en": "player_assets/slide014_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 19415,
+                              "text": "抗氧剂可以按照化学结构和作用机理来认识。 受阻酚类以2,6-二叔丁基对甲酚类结构为基础，能够提供活泼氢，是重要的一次抗氧剂。 芳香胺类同样属于一次抗氧剂，终止自由基链反应的能力较强。"
+                        },
+                        {
+                              "start": 19415,
+                              "end": 39718,
+                              "text": "亚磷酸酯类和硫代酯类主要作为二次抗氧剂，它们的任务是分解ROOH，阻止氢过氧化物继续生成高活性自由基。 把受阻酚、亚磷酸酯和硫代酯等按合理比例复配，可以产生协同效应，提高抗氧化效率并减少单剂用量。"
+                        },
+                        {
+                              "start": 39718,
+                              "end": 61485,
+                              "text": "天然抗氧剂来自植物等天然产物，例如生育酚，也就是维生素E，以及迷迭香提取物和茶多酚。 其他类型还包括金属减活剂、过氧化物分解剂、吸氧剂和紫外线吸收剂。 不同品种各有特点，应根据聚合物、加工温度和使用环境选择或复配。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 25224,
+                              "text": "Antioxidants can be understood by chemical structure and mechanism. Hindered phenols are based on structures such as 2,6-di-tert-butyl phenols. They provide active hydrogen and are important primary antioxidants. Aromatic amines are also primary antioxidants and have strong ability to terminate radical chain reactions. Phosphites and thioesters are mainly secondary antioxidants."
+                        },
+                        {
+                              "start": 25224,
+                              "end": 56880,
+                              "text": "Their task is to decompose ROOH and prevent hydroperoxides from producing highly active radicals. When hindered phenols, phosphites, and thioesters are mixed in a suitable ratio, they produce synergy, improve antioxidant efficiency, and reduce the dosage of individual additives. Natural antioxidants come from plants and other natural products, such as tocopherol, also known as vitamin E, as well as rosemary extract and tea polyphenols."
+                        },
+                        {
+                              "start": 56880,
+                              "end": 72623,
+                              "text": "Other types include metal deactivators, peroxide decomposers, oxygen absorbers, and ultraviolet absorbers. Each type has its own features and should be selected or combined according to polymer type, processing temperature, and service environment."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 61.485,
+                  "en": 72.623
+            },
+            "alt": "第14张：3.3 抗氧剂的种类"
+      },
+      {
+            "id": "slide015",
+            "index": 15,
+            "number": "3.4",
+            "title": "3.4 抗氧剂的选择及应用",
+            "titleEn": "3.4 Selection and Application of Antioxidants",
+            "image": "player_assets/slide015.webp",
+            "audio": {
+                  "zh": "player_assets/slide015_zh.mp3",
+                  "en": "player_assets/slide015_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide015_zh.vtt",
+                  "en": "player_assets/slide015_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23592,
+                              "text": "选择抗氧剂要综合考虑聚合物种类、加工条件、使用环境、性能要求、经济性和安全性。 理想抗氧剂应与材料相容，不析出、不喷霜； 抗氧效率高且持久； 耐热、低挥发、低抽出，同时毒性低、变色小、价格合理。 不同聚合物的结构和降解机理不同。"
+                        },
+                        {
+                              "start": 23592,
+                              "end": 48456,
+                              "text": "PE、PP等聚烯烃常选受阻酚，必要时与亚磷酸酯并用； PVC除受阻酚外，通常还需要亚磷酸酯等辅助抗氧剂。 两种或多种抗氧剂复配，可以协同增效。 用量不足，保护效果不明显； 用量过多则增加成本，也可能影响材料性能，因此要通过试验确定最佳值。"
+                        },
+                        {
+                              "start": 48456,
+                              "end": 72144,
+                              "text": "添加时应与树脂及其他助剂充分混匀，并避免过高温度造成抗氧剂提前分解。 储存中要防潮、避免长期高温，并定期观察老化情况。 例如PP注塑筐中，抗氧剂1010与亚磷酸酯168合理搭配，可明显提高热稳定性和长期使用寿命。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 29136,
+                              "text": "Selecting antioxidants requires considering polymer type, processing conditions, service environment, performance requirements, economy, and safety. An ideal antioxidant should be compatible with the material, without exudation or blooming. It should have high and lasting antioxidant efficiency, heat resistance, low volatility, low extractability, low toxicity, little discoloration, and reasonable cost."
+                        },
+                        {
+                              "start": 29136,
+                              "end": 52584,
+                              "text": "Different polymers have different structures and degradation mechanisms. Polyolefins such as PE and PP often use hindered phenols, sometimes together with phosphites. PVC often needs phosphites and other secondary antioxidants in addition to hindered phenols. Combining two or more antioxidants may create synergy. Too little dosage gives weak protection;"
+                        },
+                        {
+                              "start": 52584,
+                              "end": 78024,
+                              "text": "too much increases cost and may affect material properties, so the optimum amount must be determined by tests. During addition, antioxidants should be fully mixed with resin and other additives, while excessively high temperature should be avoided because it may decompose the antioxidant too early. During storage, moisture and long-term high temperature should be avoided, and aging should be monitored."
+                        },
+                        {
+                              "start": 78024,
+                              "end": 90551,
+                              "text": "For example, in PP injection-molded baskets, a proper combination of antioxidant 1010 and phosphite 168 can significantly improve heat stability and long-term service life."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 72.144,
+                  "en": 90.551
+            },
+            "alt": "第15张：3.4 抗氧剂的选择及应用"
+      },
+      {
+            "id": "slide016",
+            "index": 16,
+            "number": "3.5",
+            "title": "3.5 抗氧剂市场现状及发展趋势",
+            "titleEn": "3.5 Market Status and Trends of Antioxidants",
+            "image": "player_assets/slide016.webp",
+            "audio": {
+                  "zh": "player_assets/slide016_zh.mp3",
+                  "en": "player_assets/slide016_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide016_zh.vtt",
+                  "en": "player_assets/slide016_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 24840,
+                              "text": "随着塑料、橡胶、合成纤维、涂料和润滑油等产业增长，抗氧剂需求持续上升。 全球生产与消费主要集中在亚洲、欧洲和北美，其中亚洲产能增长较快。 与此同时，环保法规和高性能应用正在推动产品结构由低效、高毒的传统品种转向高效、低毒和环境友好型产品。"
+                        },
+                        {
+                              "start": 24840,
+                              "end": 53688,
+                              "text": "未来首先强调高效化，通过受阻酚、亚磷酸酯、硫代酯等复配实现协同增效和长效保护。 第二是环保化，发展生物基、无卤、低挥发和低毒抗氧剂。 第三是专用化，针对高温材料、透明制品、食品接触材料等场景开发专用品种。 第四是复合化与多功能化，把抗氧、耐候和抗光等功能组合起来。"
+                        },
+                        {
+                              "start": 53688,
+                              "end": 66431,
+                              "text": "行业也会进一步集中，通过工艺优化和产业链协同提高竞争力。 总体来看，抗氧剂将沿着高性能、绿色化、功能化和定制化方向发展。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 17831,
+                              "text": "With the growth of plastics, rubber, synthetic fibers, coatings, and lubricating oils, demand for antioxidants continues to rise. Global production and consumption are mainly concentrated in Asia, Europe, and North America, with Asian capacity growing quickly."
+                        },
+                        {
+                              "start": 17831,
+                              "end": 42167,
+                              "text": "At the same time, environmental regulations and high-performance applications are pushing products from traditional low-efficiency and high-toxicity types toward efficient, low-toxicity, and environmentally friendly varieties. Future development first emphasizes efficiency. Hindered phenols, phosphites, and thioesters will be combined to achieve synergy and long-term protection."
+                        },
+                        {
+                              "start": 42167,
+                              "end": 72527,
+                              "text": "The second direction is environmental friendliness, including bio-based, halogen-free, low-volatility, and low-toxicity antioxidants. The third direction is specialization, with dedicated products for high-temperature materials, transparent products, food-contact materials, and other scenarios. The fourth direction is compounding and multifunctionality, combining antioxidant, weathering, and light-stabilizing functions."
+                        },
+                        {
+                              "start": 72527,
+                              "end": 88486,
+                              "text": "The industry will also become more concentrated, and competitiveness will improve through process optimization and supply-chain coordination. Overall, antioxidants will develop toward high performance, green chemistry, functionality, and customization."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.431,
+                  "en": 88.486
+            },
+            "alt": "第16张：3.5 抗氧剂市场现状及发展趋势"
+      },
+      {
+            "id": "slide017",
+            "index": 17,
+            "number": "4.1",
+            "title": "4.1 热稳定剂概述",
+            "titleEn": "4.1 Overview of Heat Stabilizers",
+            "image": "player_assets/slide017.webp",
+            "audio": {
+                  "zh": "player_assets/slide017_zh.mp3",
+                  "en": "player_assets/slide017_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide017_zh.vtt",
+                  "en": "player_assets/slide017_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 27696,
+                              "text": "热稳定剂是PVC加工和使用过程中不可缺少的重要助剂。 PVC受热时容易降解并脱出氯化氢，随后出现变色、发脆和力学性能下降，严重时会完全失去使用价值。 因此，热稳定剂的任务是捕获或中和HCl，抑制降解继续进行。 它的主要机理包括：吸收脱出的HCl，消除其催化作用；"
+                        },
+                        {
+                              "start": 27696,
+                              "end": 53472,
+                              "text": "取代PVC链上不稳定的氯原子，从源头减少脱HCl； 与共轭多烯结构或不稳定中间体反应，阻断变色和降解链； 络合金属离子，抑制氧化降解。 理想热稳定剂应具备高效、长期稳定、加工性好、低毒环保和经济等性能。 按组成可分为铅盐类、金属皂类和有机锡类等。"
+                        },
+                        {
+                              "start": 53472,
+                              "end": 62087,
+                              "text": "实际选用要结合PVC树脂、加工工艺、制品用途与成本，常采用复配方式获得最佳效果。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 27096,
+                              "text": "Heat stabilizers are essential additives in the processing and use of PVC. When PVC is heated, it easily degrades and releases hydrogen chloride. This leads to discoloration, brittleness, and reduced mechanical properties. In severe cases, the material may completely lose its service value. The task of heat stabilizers is to capture or neutralize HCl and inhibit further degradation."
+                        },
+                        {
+                              "start": 27096,
+                              "end": 51984,
+                              "text": "Their main mechanisms include absorbing the released HCl and eliminating its catalytic effect; replacing unstable chlorine atoms on the PVC chain and reducing dehydrochlorination from the source; reacting with conjugated polyene structures or unstable intermediates to block discoloration and degradation chains; and complexing metal ions to suppress oxidative degradation."
+                        },
+                        {
+                              "start": 51984,
+                              "end": 79104,
+                              "text": "An ideal heat stabilizer should be efficient, long-lasting, easy to process, low-toxic, environmentally friendly, and economical. By composition, common types include lead salts, metal soaps, and organotin compounds. In actual selection, PVC resin, processing method, product use, and cost must all be considered. Compound systems are often used to obtain the best result."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 62.087,
+                  "en": 79.104
+            },
+            "alt": "第17张：4.1 热稳定剂概述"
+      },
+      {
+            "id": "slide018",
+            "index": 18,
+            "number": "4.2",
+            "title": "4.2 PVC的降解及热稳定剂作用机理",
+            "titleEn": "4.2 PVC Degradation and Heat Stabilization Mechanisms",
+            "image": "player_assets/slide018.webp",
+            "audio": {
+                  "zh": "player_assets/slide018_zh.mp3",
+                  "en": "player_assets/slide018_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide018_zh.vtt",
+                  "en": "player_assets/slide018_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 30480,
+                              "text": "PVC在热、光、氧和机械作用下会发生降解。 它的碳氯键相对较弱，受热后容易脱去HCl，链上形成共轭双键。 HCl又会催化更多PVC继续脱HCl，形成“自催化”效应，使制品迅速变色、发脆和性能下降。 温度、紫外线、氧和机械剪切都会加快这一过程。 热稳定剂主要通过四条路径保护PVC。"
+                        },
+                        {
+                              "start": 30480,
+                              "end": 62376,
+                              "text": "第一，碱性稳定剂与HCl反应，中和并吸收它，切断自催化。 第二，羧酸盐、硫醇盐等活性基团取代不稳定氯原子，从源头阻止脱HCl。 第三，环氧化合物或亚磷酸酯与共轭多烯结构加成，阻断多烯增长。 第四，螯合剂络合铁、铜等金属离子，降低其氧化催化活性。 这些机理通常不是彼此孤立的。"
+                        },
+                        {
+                              "start": 62376,
+                              "end": 72671,
+                              "text": "高效体系往往通过吸酸、取代、加成和络合协同作用，使PVC在加工和使用中保持较好的颜色、力学性能与外观。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 27192,
+                              "text": "PVC degrades under heat, light, oxygen, and mechanical action. Its carbon-chlorine bond is relatively weak. When heated, PVC easily eliminates HCl and forms conjugated double bonds on the chain. The released HCl then catalyzes further dehydrochlorination, creating an autocatalytic effect. As a result, the product quickly discolors, becomes brittle, and loses performance."
+                        },
+                        {
+                              "start": 27192,
+                              "end": 56712,
+                              "text": "Temperature, ultraviolet light, oxygen, and mechanical shear all accelerate this process. Heat stabilizers protect PVC through four main pathways. First, basic stabilizers react with HCl, neutralizing and absorbing it to cut off autocatalysis. Second, active groups such as carboxylates and thiolates replace unstable chlorine atoms and prevent HCl release from the source."
+                        },
+                        {
+                              "start": 56712,
+                              "end": 89808,
+                              "text": "Third, epoxy compounds or phosphites add to conjugated polyene structures and stop polyene growth. Fourth, chelating agents complex metal ions such as iron and copper and reduce their oxidative catalytic activity. These mechanisms are usually not isolated. Efficient systems often combine acid absorption, substitution, addition, and complexation, helping PVC maintain color, mechanical properties, and appearance during processing and use."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 72.671,
+                  "en": 89.808
+            },
+            "alt": "第18张：4.2 PVC的降解及热稳定剂作用机理"
+      },
+      {
+            "id": "slide019",
+            "index": 19,
+            "number": "4.3",
+            "title": "4.3 热稳定剂的性能",
+            "titleEn": "4.3 Properties of Heat Stabilizers",
+            "image": "player_assets/slide019.webp",
+            "audio": {
+                  "zh": "player_assets/slide019_zh.mp3",
+                  "en": "player_assets/slide019_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide019_zh.vtt",
+                  "en": "player_assets/slide019_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 28008,
+                              "text": "评价热稳定剂，最基本的指标是热稳定性。 它应在PVC常见的160至200摄氏度加工范围内不分解、不挥发，并能在较长加工时间内持续保护。 制品成型后还要有良好的长期稳定性，在储存和使用数月或数年后仍保持性能。 理想热稳定剂应使PVC初期着色小，保持浅色和透明；"
+                        },
+                        {
+                              "start": 28008,
+                              "end": 51432,
+                              "text": "还要抑制后期连续着色，减少长期使用中的黄变。 它本身不能明显增加熔体黏度或影响挤出、压延等工序，并要与PVC相容良好，避免析出、喷霜和表面粗糙。 对于电线电缆等制品，还要尽量减小对绝缘电阻、介电强度和介电常数的影响。"
+                        },
+                        {
+                              "start": 51432,
+                              "end": 64247,
+                              "text": "低挥发、低抽出、低迁移可以降低环境影响，低毒和良好卫生性能则保障安全。 只有这些性能综合达标，才能使PVC长期保持优良外观与使用性能。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 25152,
+                              "text": "The most basic indicator for a heat stabilizer is heat stability. It should not decompose or volatilize in the common PVC processing range of 160 to 200 degrees Celsius, and it should continue to protect PVC over a long processing time. After forming, the product also needs good long-term stability so that properties remain after months or years of storage and use."
+                        },
+                        {
+                              "start": 25152,
+                              "end": 55392,
+                              "text": "An ideal heat stabilizer should cause little initial coloration and keep PVC light-colored or transparent. It should also suppress later continuous coloration and reduce yellowing during long-term use. The stabilizer itself should not greatly increase melt viscosity or interfere with extrusion, calendering, or other operations. It should be compatible with PVC and avoid exudation, blooming, and surface roughness."
+                        },
+                        {
+                              "start": 55392,
+                              "end": 83520,
+                              "text": "For products such as wires and cables, it should have minimal influence on insulation resistance, dielectric strength, and dielectric constant. Low volatility, low extractability, and low migration reduce environmental impact. Low toxicity and good sanitary performance ensure safety. Only when these properties are balanced can PVC maintain good appearance and service performance for a long time."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 64.247,
+                  "en": 83.52
+            },
+            "alt": "第19张：4.3 热稳定剂的性能"
+      },
+      {
+            "id": "slide020",
+            "index": 20,
+            "number": "4.4",
+            "title": "4.4 热稳定剂各论",
+            "titleEn": "4.4 Main Types of Heat Stabilizers",
+            "image": "player_assets/slide020.webp",
+            "audio": {
+                  "zh": "player_assets/slide020_zh.mp3",
+                  "en": "player_assets/slide020_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide020_zh.vtt",
+                  "en": "player_assets/slide020_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 22415,
+                              "text": "热稳定剂种类很多，实际常通过复配实现协同。 铅盐类使用早、稳定性和润滑性好、价格低，但毒性和环境污染问题突出，正逐步被替代。 钙锌皂类以脂肪酸钙、锌盐为主，无毒环保、透明性好，但热稳定性往往需要其他稳定剂协同提高。"
+                        },
+                        {
+                              "start": 22415,
+                              "end": 52535,
+                              "text": "有机锡类具有优异的取代氯和捕获HCl能力，热稳定性高、初期着色小、透明性好，但价格较高，也需关注环境影响。 复合铅盐通过加入辅助稳定剂改善透明、润滑或热稳定性能。 有机膦类可捕获游离HCl并抑制自催化，通常作为配合组分使用。 有机稀土类高效、透明、无毒且耐候性好，但成本较高；"
+                        },
+                        {
+                              "start": 52535,
+                              "end": 64390,
+                              "text": "双金属皂通过两种金属盐协同捕获HCl； 现代趋势则是无毒环保、高效复配、多功能化和绿色可持续。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 23784,
+                              "text": "There are many types of heat stabilizers, and compound systems are often used in practice. Lead salts were used early. They have good stability, lubrication, and low cost, but their toxicity and environmental pollution are serious, so they are being gradually replaced. Calcium-zinc soaps are based on calcium and zinc salts of fatty acids."
+                        },
+                        {
+                              "start": 23784,
+                              "end": 48768,
+                              "text": "They are non-toxic, environmentally friendly, and transparent, but their heat stability often needs support from other stabilizers. Organotin stabilizers have excellent ability to replace chlorine and capture HCl. They offer high heat stability, low initial coloration, and good transparency, but they are more expensive and environmental impact should be considered."
+                        },
+                        {
+                              "start": 48768,
+                              "end": 78696,
+                              "text": "Composite lead salts add auxiliary stabilizers to improve transparency, lubrication, or heat stability. Organic phosphorus compounds can capture free HCl and suppress autocatalysis, and are usually used as components in blends. Organic rare-earth stabilizers are efficient, transparent, non-toxic, and weather resistant, but cost is high. Bimetallic soaps use two metal salts to capture HCl synergistically."
+                        },
+                        {
+                              "start": 78696,
+                              "end": 88415,
+                              "text": "Modern trends focus on non-toxic environmental protection, efficient compounding, multifunctionality, and green sustainability."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 64.39,
+                  "en": 88.415
+            },
+            "alt": "第20张：4.4 热稳定剂各论"
+      },
+      {
+            "id": "slide021",
+            "index": 21,
+            "number": "4.5",
+            "title": "4.5 热稳定剂的发展方向",
+            "titleEn": "4.5 Development Directions of Heat Stabilizers",
+            "image": "player_assets/slide021.webp",
+            "audio": {
+                  "zh": "player_assets/slide021_zh.mp3",
+                  "en": "player_assets/slide021_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide021_zh.vtt",
+                  "en": "player_assets/slide021_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23544,
+                              "text": "未来热稳定剂的发展目标可以概括为高效、环保和多功能。 高效化意味着在更低添加量下获得更好的热稳定效果，降低成本并减少对材料其他性能的影响。 环保化则要求减少铅、镉等重金属，发展低毒、无毒、可生物降解并符合环保法规的新体系。"
+                        },
+                        {
+                              "start": 23544,
+                              "end": 53832,
+                              "text": "多功能化强调一剂多效，在热稳定之外兼具润滑、抗冲击和耐候等作用。 复合化通过有机锡、钙锌、稀土和有机磷等组分协同，提高整体效果。 面向高温、高剪切和长寿命制品，还要开发耐候、耐迁移和长期稳定性更好的高性能品种。 新型材料体系包括纳米材料、无机纳米粒子和功能化聚合物。"
+                        },
+                        {
+                              "start": 53832,
+                              "end": 67511,
+                              "text": "智能化应用则依据树脂、工艺和用途进行精准匹配，实现按需定制。 最终还要走向可回收、可降解和循环经济，为PVC产业提供更可靠、更绿色的保障。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28824,
+                              "text": "Future heat stabilizers can be summarized by three goals: high efficiency, environmental friendliness, and multifunctionality. High efficiency means obtaining better heat stability at lower dosage, reducing cost and minimizing effects on other material properties. Environmental friendliness means reducing heavy metals such as lead and cadmium, and developing low-toxic, non-toxic, biodegradable, and regulation-compliant new systems."
+                        },
+                        {
+                              "start": 28824,
+                              "end": 52344,
+                              "text": "Multifunctionality means one additive can provide several effects, such as heat stabilization, lubrication, impact modification, and weather resistance. Compounding organotin, calcium-zinc, rare-earth, organic phosphorus, and other components can create synergy and improve overall performance."
+                        },
+                        {
+                              "start": 52344,
+                              "end": 78504,
+                              "text": "For products exposed to high temperature, high shear, or long service life, high-performance stabilizers with better weatherability, migration resistance, and long-term stability are needed. New material systems include nanomaterials, inorganic nanoparticles, and functional polymers. Intelligent application means matching stabilizers precisely with resin, process, and product use."
+                        },
+                        {
+                              "start": 78504,
+                              "end": 89927,
+                              "text": "In the end, heat stabilizers must also support recyclability, degradability, and circular economy, providing more reliable and greener support for the PVC industry."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 67.511,
+                  "en": 89.927
+            },
+            "alt": "第21张：4.5 热稳定剂的发展方向"
+      },
+      {
+            "id": "slide022",
+            "index": 22,
+            "number": "5.1",
+            "title": "5.1 光稳定剂概述",
+            "titleEn": "5.1 Overview of Light Stabilizers",
+            "image": "player_assets/slide022.webp",
+            "audio": {
+                  "zh": "player_assets/slide022_zh.mp3",
+                  "en": "player_assets/slide022_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide022_zh.vtt",
+                  "en": "player_assets/slide022_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23135,
+                              "text": "光稳定剂是一类能够延缓或抑制聚合物在光照条件下发生光老化的助剂。 聚合物受到阳光尤其是紫外线照射后，会发生一系列降解反应，最终表现为变色、开裂、粉化和脆化。 光稳定剂通过吸收、屏蔽或消耗有害光能，阻断或减缓这些反应。"
+                        },
+                        {
+                              "start": 23135,
+                              "end": 49415,
+                              "text": "它的作用包括吸收紫外线并转化为无害能量、淬灭激发态、清除自由基和终止光氧化链反应。 光稳定剂广泛用于塑料、橡胶、涂料和合成纤维。 按机理，常见类型有紫外线吸收剂和受阻胺光稳定剂HALS，前者吸收紫外线，后者捕捉自由基，并具有一定再生能力。"
+                        },
+                        {
+                              "start": 49415,
+                              "end": 64174,
+                              "text": "理想光稳定剂应高效、耐热耐迁移、与聚合物相容、低挥发低毒，并尽量不影响颜色和性能。 现代研究正向高效、低毒、复配协同和环保长效发展。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 30960,
+                              "text": "Light stabilizers are additives that delay or inhibit photo-aging of polymers under light exposure. When polymers are exposed to sunlight, especially ultraviolet radiation, they undergo a series of degradation reactions. The final results include discoloration, cracking, powdering, and embrittlement. Light stabilizers protect materials by absorbing, shielding, or consuming harmful light energy, and by blocking or slowing these reactions."
+                        },
+                        {
+                              "start": 30960,
+                              "end": 57264,
+                              "text": "Their functions include absorbing ultraviolet light and converting it into harmless energy, quenching excited states, removing free radicals, and terminating photo-oxidation chain reactions. Light stabilizers are widely used in plastics, rubber, coatings, and synthetic fibers. By mechanism, common types include ultraviolet absorbers and hindered amine light stabilizers, or HALS."
+                        },
+                        {
+                              "start": 57264,
+                              "end": 87984,
+                              "text": "UV absorbers absorb ultraviolet light, while HALS capture radicals and have a certain regenerative ability. An ideal light stabilizer should be efficient, heat resistant, migration resistant, compatible with the polymer, low in volatility and toxicity, and should not greatly affect color or performance. Modern research is moving toward high efficiency, low toxicity, synergistic compounding, and long-lasting environmental protection."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 64.174,
+                  "en": 87.984
+            },
+            "alt": "第22张：5.1 光稳定剂概述"
+      },
+      {
+            "id": "slide023",
+            "index": 23,
+            "number": "5.2",
+            "title": "5.2 紫外线对聚合物的老化作用",
+            "titleEn": "5.2 Aging Effects of Ultraviolet Light on Polymers",
+            "image": "player_assets/slide023.webp",
+            "audio": {
+                  "zh": "player_assets/slide023_zh.mp3",
+                  "en": "player_assets/slide023_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide023_zh.vtt",
+                  "en": "player_assets/slide023_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 28536,
+                              "text": "太阳光中的紫外线波长约为100至400纳米，能量较高，可以被聚合物吸收并引发光化学反应。 紫外光能使碳碳键、碳氧键等化学键断裂，形成自由基或激发态分子，这是光老化的起点。 自由基随后与氧反应生成过氧自由基，再经过夺氢、形成氢过氧化物和分解等步骤不断产生新自由基，形成链式反应。"
+                        },
+                        {
+                              "start": 28536,
+                              "end": 54744,
+                              "text": "分子链会发生断链或交联：断链使分子量下降、材料变脆和强度降低； 交联可能使材料变硬并容易开裂。 最终表现为力学性能下降、变色失光、粉化、脆裂和使用寿命缩短。 老化速度还受紫外线强度、照射时间、温度、氧气、水分、污染物和聚合物结构影响。"
+                        },
+                        {
+                              "start": 54744,
+                              "end": 61992,
+                              "text": "农用薄膜、户外涂层、轮胎和塑料制品长期暴露在户外，必须采取光稳定措施。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26592,
+                              "text": "Ultraviolet light in sunlight has wavelengths of about 100 to 400 nanometers and relatively high energy. It can be absorbed by polymers and trigger photochemical reactions. Ultraviolet light can break chemical bonds such as carbon-carbon and carbon-oxygen bonds, forming free radicals or excited molecules. This is the starting point of photo-aging. Free radicals then react with oxygen to produce peroxy radicals."
+                        },
+                        {
+                              "start": 26592,
+                              "end": 51168,
+                              "text": "Through hydrogen abstraction, hydroperoxide formation, and decomposition, new radicals are continuously generated and a chain reaction develops. Molecular chains may undergo scission or crosslinking. Chain scission reduces molecular weight, makes materials brittle, and lowers strength. Crosslinking may make materials harder and more prone to cracking."
+                        },
+                        {
+                              "start": 51168,
+                              "end": 79368,
+                              "text": "The final results are reduced mechanical properties, discoloration, gloss loss, powdering, cracking, and shorter service life. Aging rate is also affected by UV intensity, exposure time, temperature, oxygen, moisture, pollutants, and polymer structure. Agricultural film, outdoor coatings, tires, and plastic products exposed outdoors for long periods must therefore use light-stabilizing measures."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 61.992,
+                  "en": 79.368
+            },
+            "alt": "第23张：5.2 紫外线对聚合物的老化作用"
+      },
+      {
+            "id": "slide024",
+            "index": 24,
+            "number": "5.3",
+            "title": "5.3 光氧化降解机理",
+            "titleEn": "5.3 Mechanism of Photo-Oxidative Degradation",
+            "image": "player_assets/slide024.webp",
+            "audio": {
+                  "zh": "player_assets/slide024_zh.mp3",
+                  "en": "player_assets/slide024_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide024_zh.vtt",
+                  "en": "player_assets/slide024_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 31008,
+                              "text": "聚合物吸收光子后会进入激发态。 大部分激发能可通过发光、放热或能量转移无害释放，但也可能引起化学键断裂，从而启动光氧化降解。 能态变化包括从基态跃迁到激发单线态或三线态，再通过荧光、磷光和无辐射过程回到低能态。 光氧化可由臭氧、氧、聚合物自身的发色基团以及催化剂残留物引发。"
+                        },
+                        {
+                              "start": 31008,
+                              "end": 56736,
+                              "text": "臭氧在紫外线作用下生成活性氧； 聚合过程残留的TiO2、Al2O3等无机物也可能吸收紫外线。 氢过氧化物受光分解产生烷氧自由基和羟基自由基，继续夺氢、加氧或发生β断裂。 羰基还可发生诺里什I型或II型断裂，生成自由基并引起链断裂。"
+                        },
+                        {
+                              "start": 56736,
+                              "end": 70943,
+                              "text": "整体过程可以概括为：发色基团吸光，激发态断裂，分子氧生成单线态氧，随后形成过氧化物并继续氧化，最终导致发黄、变脆和开裂。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 29544,
+                              "text": "After absorbing photons, a polymer enters an excited state. Most excited energy can be harmlessly released through light emission, heat release, or energy transfer. However, it may also break chemical bonds and start photo-oxidative degradation. Energy-state changes include transition from the ground state to excited singlet or triplet states, followed by fluorescence, phosphorescence, or non-radiative return to a lower energy state."
+                        },
+                        {
+                              "start": 29544,
+                              "end": 59232,
+                              "text": "Photo-oxidation may be initiated by ozone, oxygen, chromophoric groups in the polymer, or catalyst residues. Ozone produces active oxygen under ultraviolet light. Residual inorganic substances such as TiO2 or Al2O3 from polymerization may also absorb ultraviolet light. Hydroperoxides decompose under light to form alkoxy and hydroxyl radicals, which continue hydrogen abstraction, oxygen addition, or beta scission."
+                        },
+                        {
+                              "start": 59232,
+                              "end": 83256,
+                              "text": "Carbonyl groups can also undergo Norrish type I or type II cleavage, producing radicals and causing chain scission. Overall, the process can be summarized as chromophores absorbing light, excited-state cleavage, formation of singlet oxygen, peroxide formation, continuing oxidation, and finally yellowing, embrittlement, and cracking."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 70.943,
+                  "en": 83.256
+            },
+            "alt": "第24张：5.3 光氧化降解机理"
+      },
+      {
+            "id": "slide025",
+            "index": 25,
+            "number": "5.4",
+            "title": "5.4 光稳定剂作用机理",
+            "titleEn": "5.4 Mechanisms of Light Stabilizers",
+            "image": "player_assets/slide025.webp",
+            "audio": {
+                  "zh": "player_assets/slide025_zh.mp3",
+                  "en": "player_assets/slide025_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide025_zh.vtt",
+                  "en": "player_assets/slide025_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 22823,
+                              "text": "高分子材料在光、氧、热和水分共同作用下会光老化。 光稳定剂的保护不是单一路径，而是由光屏蔽剂、紫外线吸收剂、淬灭剂和自由基捕获剂共同构成。 光屏蔽剂利用反射、散射或阻挡紫外线减少其进入材料内部，常见的有无机颜料和炭黑。"
+                        },
+                        {
+                              "start": 22823,
+                              "end": 49943,
+                              "text": "紫外线吸收剂选择性吸收高能紫外线，再以无害热能释放，常见结构包括二苯甲酮和苯并三唑。 淬灭剂不直接强吸收紫外线，而是接收激发态分子的能量，使其安全回到基态。 受阻胺光稳定剂HALS几乎不吸收紫外线，却能捕捉自由基、淬灭单线态氧并分解过氧化物。"
+                        },
+                        {
+                              "start": 49943,
+                              "end": 66718,
+                              "text": "它还能形成较稳定的氮氧自由基并继续循环捕获新自由基，因此具有持久保护能力。 多种稳定剂协同使用，可在光进入、能量激发和自由基反应多个环节共同拦截光老化。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28248,
+                              "text": "Polymer materials undergo photo-aging under the combined action of light, oxygen, heat, and moisture. Protection by light stabilizers is not a single pathway. It is built from light screeners, ultraviolet absorbers, quenchers, and radical scavengers working together. Light screeners reduce ultraviolet penetration into the material by reflection, scattering, or blocking. Common examples include inorganic pigments and carbon black."
+                        },
+                        {
+                              "start": 28248,
+                              "end": 47999,
+                              "text": "Ultraviolet absorbers selectively absorb high-energy UV light and release it as harmless heat. Common structures include benzophenones and benzotriazoles. Quenchers do not strongly absorb UV directly. Instead, they accept energy from excited molecules and help them return safely to the ground state."
+                        },
+                        {
+                              "start": 47999,
+                              "end": 76391,
+                              "text": "Hindered amine light stabilizers, or HALS, almost do not absorb ultraviolet light, but they can capture radicals, quench singlet oxygen, and decompose peroxides. They form relatively stable nitroxyl radicals and continue to capture new radicals in a cycle, so they provide durable protection. Combining several stabilizers can intercept photo-aging at light entry, energy excitation, and radical reaction stages."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.718,
+                  "en": 76.391
+            },
+            "alt": "第25张：5.4 光稳定剂作用机理"
+      },
+      {
+            "id": "slide026",
+            "index": 26,
+            "number": "5.5",
+            "title": "5.5 光稳定剂各论",
+            "titleEn": "5.5 Main Types of Light Stabilizers",
+            "image": "player_assets/slide026.webp",
+            "audio": {
+                  "zh": "player_assets/slide026_zh.mp3",
+                  "en": "player_assets/slide026_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide026_zh.vtt",
+                  "en": "player_assets/slide026_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 20999,
+                              "text": "光稳定剂主要包括紫外线吸收剂UVA、受阻胺光稳定剂HALS、光屏蔽剂和复配体系。 UVA通过吸收200至400纳米的紫外线并转化为热能保护聚合物，代表品种有苯并三唑、二苯甲酮、水杨酸酯和三嗪类。"
+                        },
+                        {
+                              "start": 20999,
+                              "end": 45623,
+                              "text": "HALS含受阻胺基团，分子量较大、挥发性低，能够捕获自由基、中和过氧化物分解产物并终止氧化链。 光屏蔽剂主要以物理方式反射或散射紫外线，包括二氧化钛、氧化锌、炭黑和某些颜料。 复配体系把UVA、HALS和光屏蔽剂组合，利用协同作用获得更长效保护。"
+                        },
+                        {
+                              "start": 45623,
+                              "end": 67126,
+                              "text": "选择时要考虑聚合物类型、紫外线强度、温湿度、透明度和颜色要求、加工耐热性以及法规。 农膜、汽车内外饰和户外建材往往采用不同的复配方案。 未来重点是高效、低迁移、环保、多功能和智能响应。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26424,
+                              "text": "Light stabilizers mainly include ultraviolet absorbers, hindered amine light stabilizers, light screeners, and compound systems. UV absorbers protect polymers by absorbing ultraviolet light from 200 to 400 nanometers and converting it into heat. Representative types include benzotriazoles, benzophenones, salicylates, and triazines. HALS contain hindered amine groups."
+                        },
+                        {
+                              "start": 26424,
+                              "end": 50424,
+                              "text": "They often have relatively high molecular weight and low volatility, and they can capture radicals, neutralize peroxide decomposition products, and terminate oxidation chains. Light screeners protect mainly by physical reflection or scattering of ultraviolet light. Examples include titanium dioxide, zinc oxide, carbon black, and some pigments."
+                        },
+                        {
+                              "start": 50424,
+                              "end": 78096,
+                              "text": "Compound systems combine UV absorbers, HALS, and light screeners to achieve longer lasting protection through synergy. Selection should consider polymer type, UV intensity, temperature and humidity, transparency and color requirements, processing heat resistance, and regulations. Agricultural films, automotive interior and exterior parts, and outdoor building materials often require different compound solutions."
+                        },
+                        {
+                              "start": 78096,
+                              "end": 87455,
+                              "text": "Future development focuses on high efficiency, low migration, environmental friendliness, multifunctionality, and smart response."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 67.126,
+                  "en": 87.455
+            },
+            "alt": "第26张：5.5 光稳定剂各论"
+      },
+      {
+            "id": "slide027",
+            "index": 27,
+            "number": "5.6",
+            "title": "5.6 光稳定剂的选择及应用",
+            "titleEn": "5.6 Selection and Application of Light Stabilizers",
+            "image": "player_assets/slide027.webp",
+            "audio": {
+                  "zh": "player_assets/slide027_zh.mp3",
+                  "en": "player_assets/slide027_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide027_zh.vtt",
+                  "en": "player_assets/slide027_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 28488,
+                              "text": "选择光稳定剂首先要看它能否在材料最敏感的波长范围内有效吸收或消耗光能，并与聚合物相容，避免起霜和迁移。 还要具备良好的热稳定性、耐萃取和耐水解性，不污染透明或浅色制品，且低毒安全。 实际配方还要考虑抗氧剂、热稳定剂、润滑剂和颜料之间的相互作用。 不同树脂需要不同方案。"
+                        },
+                        {
+                              "start": 28488,
+                              "end": 54288,
+                              "text": "PVC户外制品常用二苯甲酮、苯并三唑或取代丙烯腈类，同时关注与热稳定剂的配合； PE农膜常把受阻胺与抗氧剂并用； PP电缆和喷灌管需同时提高抗光和抗氧能力； PS容易光氧化发黄，可选择吸收其敏感波段的稳定剂，并与橡胶或受阻酚协同。"
+                        },
+                        {
+                              "start": 54288,
+                              "end": 66431,
+                              "text": "因此，选型逻辑应依次考虑聚合物、敏感波长、加工条件、使用环境、助剂配合、颜色透明度和安全要求，通过试验确定最佳体系。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 25800,
+                              "text": "When selecting a light stabilizer, first consider whether it can effectively absorb or consume light energy in the wavelength range most sensitive to the material. It must also be compatible with the polymer to avoid blooming and migration. Good heat stability, extraction resistance, and hydrolysis resistance are needed. It should not contaminate transparent or light-colored products and should be safe and low-toxic."
+                        },
+                        {
+                              "start": 25800,
+                              "end": 53112,
+                              "text": "Actual formulations must also consider interactions with antioxidants, heat stabilizers, lubricants, and pigments. Different resins need different solutions. Outdoor PVC products often use benzophenones, benzotriazoles, or substituted acrylonitrile types, while also considering compatibility with heat stabilizers. PE agricultural film often combines HALS with antioxidants."
+                        },
+                        {
+                              "start": 53112,
+                              "end": 81192,
+                              "text": "PP cables and irrigation pipes need improvements in both light resistance and oxidation resistance. PS is prone to yellowing by photo-oxidation, so stabilizers should absorb sensitive wavelengths and work together with rubber or hindered phenols. Therefore, selection should consider polymer type, sensitive wavelength, processing conditions, service environment, additive combination, color and transparency, and safety requirements."
+                        },
+                        {
+                              "start": 81192,
+                              "end": 84480,
+                              "text": "The best system must be confirmed by testing."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.431,
+                  "en": 84.48
+            },
+            "alt": "第27张：5.6 光稳定剂的选择及应用"
+      },
+      {
+            "id": "slide028",
+            "index": 28,
+            "number": "5.7",
+            "title": "5.7 光稳定剂市场现状及发展趋势",
+            "titleEn": "5.7 Market Status and Trends of Light Stabilizers",
+            "image": "player_assets/slide028.webp",
+            "audio": {
+                  "zh": "player_assets/slide028_zh.mp3",
+                  "en": "player_assets/slide028_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide028_zh.vtt",
+                  "en": "player_assets/slide028_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 22703,
+                              "text": "随着塑料、涂料、橡胶和户外高分子制品快速发展，光稳定剂市场需求保持增长。 主要应用包括包装与农膜、户外建筑涂层、汽车涂料、轮胎密封件以及纤维、胶黏剂等新兴领域。 产品结构中，HALS应用广、占比较高，UVA是重要补充，复配产品增长较快。"
+                        },
+                        {
+                              "start": 22703,
+                              "end": 52775,
+                              "text": "区域上，北美技术成熟并重视高端产品，欧洲环保法规严格，亚太地区增长最快，中国需求和产能持续提升。 市场竞争既有国际企业在高端领域的优势，也有国内企业凭借产能和性价比快速追赶，竞争重点逐渐转向技术、差异化产品和服务。 未来趋势一是高效化，用更少添加量获得更持久保护；"
+                        },
+                        {
+                              "start": 52775,
+                              "end": 66670,
+                              "text": "二是环保绿色化，发展低毒、低挥发、可回收和生物基产品； 三是多功能、复配和定制化，将抗紫外、抗氧化和自由基捕获组合成面向具体场景的方案。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26568,
+                              "text": "With the rapid development of plastics, coatings, rubber, and outdoor polymer products, demand for light stabilizers continues to grow. Major applications include packaging and agricultural film, outdoor building coatings, automotive coatings, tire seals, fibers, adhesives, and other emerging fields. In product structure, HALS are widely used and hold a relatively high share."
+                        },
+                        {
+                              "start": 26568,
+                              "end": 47567,
+                              "text": "UV absorbers are important supplements, and compound products are growing quickly. Regionally, North America has mature technology and focuses on high-end products. Europe has strict environmental regulations. The Asia-Pacific region is growing fastest, and China continues to expand both demand and production capacity."
+                        },
+                        {
+                              "start": 47567,
+                              "end": 75983,
+                              "text": "Market competition includes advantages of international companies in high-end fields and rapid catch-up by domestic companies through capacity and cost performance. Competition is gradually shifting toward technology, differentiated products, and service. Future trends include higher efficiency, using less additive for longer protection; greener products with low toxicity, low volatility, recyclability, and bio-based sources;"
+                        },
+                        {
+                              "start": 75983,
+                              "end": 87310,
+                              "text": "and multifunctional, compounded, and customized solutions that combine UV resistance, oxidation resistance, and radical trapping for specific application scenarios."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.67,
+                  "en": 87.31
+            },
+            "alt": "第28张：5.7 光稳定剂市场现状及发展趋势"
+      },
+      {
+            "id": "slide029",
+            "index": 29,
+            "number": "6.1",
+            "title": "6.1 阻燃剂概述",
+            "titleEn": "6.1 Overview of Flame Retardants",
+            "image": "player_assets/slide029.webp",
+            "audio": {
+                  "zh": "player_assets/slide029_zh.mp3",
+                  "en": "player_assets/slide029_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide029_zh.vtt",
+                  "en": "player_assets/slide029_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 29088,
+                              "text": "塑料、橡胶等高分子材料应用广泛，但大多数具有可燃性。 燃烧不仅造成财产损失，还会威胁生命并产生有毒烟雾。 阻燃剂就是加入材料中，用于降低可燃性、延缓燃烧甚至使火焰熄灭的助剂，相当于给材料穿上一件“防火安全衣”。 阻燃剂通过物理或化学作用干扰燃烧。 冷却作用降低温度、吸收热量；"
+                        },
+                        {
+                              "start": 29088,
+                              "end": 53736,
+                              "text": "隔绝作用减少氧气或空气进入； 抑制作用捕获燃烧自由基、减少可燃气体； 成炭作用形成致密炭层，阻隔热量和氧气。 多种机理协同，通常效果更好。 按使用方法可分为添加型和反应型。 其效果还受品种、添加量、与材料的相容性、加工工艺和使用环境影响。"
+                        },
+                        {
+                              "start": 53736,
+                              "end": 62039,
+                              "text": "合理配方能争取疏散和灭火时间，广泛服务于建筑、交通、电子电器与家居领域。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 30672,
+                              "text": "Polymer materials such as plastics and rubber are widely used, but most are combustible. Fire causes not only property loss, but also threats to life and toxic smoke. Flame retardants are additives added to materials to reduce combustibility, delay burning, or even extinguish flame. They are like a fire-safety coat for the material. Flame retardants interfere with combustion through physical or chemical action. Cooling lowers temperature and absorbs heat."
+                        },
+                        {
+                              "start": 30672,
+                              "end": 62208,
+                              "text": "Isolation reduces the entry of oxygen or air. Inhibition captures combustion radicals and reduces flammable gases. Charring forms a dense carbon layer that blocks heat and oxygen. Several mechanisms often work together and give better results. By method of use, flame retardants are divided into additive type and reactive type. Their effect is also influenced by type, dosage, compatibility with the material, processing method, and service environment."
+                        },
+                        {
+                              "start": 62208,
+                              "end": 74351,
+                              "text": "A reasonable formulation can buy time for evacuation and fire extinguishing, and is widely used in construction, transportation, electrical and electronic products, and household goods."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 62.039,
+                  "en": 74.351
+            },
+            "alt": "第29张：6.1 阻燃剂概述"
+      },
+      {
+            "id": "slide030",
+            "index": 30,
+            "number": "6.2",
+            "title": "6.2 聚合物燃烧与阻燃机理",
+            "titleEn": "6.2 Polymer Combustion and Flame-Retardant Mechanisms",
+            "image": "player_assets/slide030.webp",
+            "audio": {
+                  "zh": "player_assets/slide030_zh.mp3",
+                  "en": "player_assets/slide030_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide030_zh.vtt",
+                  "en": "player_assets/slide030_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 28728,
+                              "text": "聚合物燃烧需要同时具备可燃物、氧气或空气以及点火源三个条件。 受热后，聚合物先分解并释放可燃气体； 气体逸出并与空气混合后发生气相燃烧； 火焰释放的热量又反馈给材料，使其继续分解，燃烧循环得以维持。 聚合物含碳、氢较多，热值高，受热容易产生大量可燃气体；"
+                        },
+                        {
+                              "start": 28728,
+                              "end": 55368,
+                              "text": "不完全燃烧还会产生烟和有毒气体，热塑性材料可能熔融滴落，导致火势蔓延。 阻燃的实质，就是破坏这条燃烧链或其中某个条件。 气相阻燃剂捕获氢自由基、羟基自由基等活性粒子，终止自由基链反应。 凝聚相阻燃剂促进材料表面形成致密炭层，隔热、隔氧并阻止可燃气体逸出。"
+                        },
+                        {
+                              "start": 55368,
+                              "end": 66071,
+                              "text": "许多体系同时发挥气相和凝聚相作用。 最终效果还取决于阻燃剂种类、用量、分散性、聚合物结构和燃烧条件。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26616,
+                              "text": "Polymer combustion requires three conditions at the same time: combustible material, oxygen or air, and an ignition source. When heated, the polymer first decomposes and releases combustible gases. These gases escape and mix with air, then burn in the gas phase. Heat released by the flame feeds back to the material and causes further decomposition, so the burning cycle continues."
+                        },
+                        {
+                              "start": 26616,
+                              "end": 49487,
+                              "text": "Polymers contain much carbon and hydrogen, have high heat value, and easily release large amounts of flammable gases when heated. Incomplete combustion also produces smoke and toxic gases. Thermoplastics may melt and drip, spreading fire. Flame retardancy therefore means breaking this combustion chain or removing one of its necessary conditions."
+                        },
+                        {
+                              "start": 49487,
+                              "end": 72959,
+                              "text": "Gas-phase flame retardants capture active species such as hydrogen radicals and hydroxyl radicals, terminating radical chain reactions. Condensed-phase flame retardants promote formation of a dense carbon layer on the material surface, insulating heat and oxygen and preventing combustible gases from escaping. Many systems act in both phases."
+                        },
+                        {
+                              "start": 72959,
+                              "end": 81262,
+                              "text": "The final effect also depends on flame-retardant type, dosage, dispersion, polymer structure, and burning conditions."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.071,
+                  "en": 81.262
+            },
+            "alt": "第30张：6.2 聚合物燃烧与阻燃机理"
+      },
+      {
+            "id": "slide031",
+            "index": 31,
+            "number": "6.3",
+            "title": "6.3 阻燃剂各论",
+            "titleEn": "6.3 Main Types of Flame Retardants",
+            "image": "player_assets/slide031.webp",
+            "audio": {
+                  "zh": "player_assets/slide031_zh.mp3",
+                  "en": "player_assets/slide031_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide031_zh.vtt",
+                  "en": "player_assets/slide031_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23856,
+                              "text": "阻燃剂按组成和机理可分为多类。 无机阻燃剂如氢氧化铝、氢氧化镁，受热分解释放水、吸热降温，并稀释可燃气体，烟毒性较低，但添加量通常较大。 卤系阻燃剂在燃烧时释放含卤物种捕获自由基，效率高、用量小，但要关注腐蚀性气体和二次污染。"
+                        },
+                        {
+                              "start": 23856,
+                              "end": 54672,
+                              "text": "磷系阻燃剂可生成磷酸或偏磷酸，促进脱水成炭，部分品种兼有气相作用。 氮系阻燃剂受热释放不可燃气体，常与磷系配合产生协同。 硅系阻燃剂形成致密二氧化硅保护层，兼具热稳定和抑烟作用。 金属氢氧化物还可作为卤系、磷系体系的协效剂。 复配使用能提高效率、减少添加量和烟雾，并改善综合性能。"
+                        },
+                        {
+                              "start": 54672,
+                              "end": 61200,
+                              "text": "未来阻燃剂将向高效、低烟低毒、环保、多功能和复合协同发展。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26832,
+                              "text": "Flame retardants can be divided into several types by composition and mechanism. Inorganic flame retardants such as aluminum hydroxide and magnesium hydroxide release water when heated, absorb heat, lower temperature, and dilute combustible gases. They have low smoke toxicity, but usually require high loading. Halogenated flame retardants release halogen-containing species during burning and capture radicals."
+                        },
+                        {
+                              "start": 26832,
+                              "end": 52440,
+                              "text": "They are efficient and used at low dosage, but corrosive gases and secondary pollution must be considered. Phosphorus flame retardants can generate phosphoric acid or metaphosphoric acid, promoting dehydration and charring, and some also have gas-phase effects. Nitrogen flame retardants release non-combustible gases when heated and often work synergistically with phosphorus systems."
+                        },
+                        {
+                              "start": 52440,
+                              "end": 83688,
+                              "text": "Silicon flame retardants form dense silica protective layers and can improve heat stability and smoke suppression. Metal hydroxides can also act as synergists in halogen or phosphorus systems. Compounding can improve efficiency, reduce dosage and smoke, and improve overall performance. Future flame retardants will develop toward high efficiency, low smoke, low toxicity, environmental protection, multifunctionality, and compound synergy."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 61.2,
+                  "en": 83.688
+            },
+            "alt": "第31张：6.3 阻燃剂各论"
+      },
+      {
+            "id": "slide032",
+            "index": 32,
+            "number": "6.4",
+            "title": "6.4 阻燃剂在塑料中的应用",
+            "titleEn": "6.4 Applications of Flame Retardants in Plastics",
+            "image": "player_assets/slide032.webp",
+            "audio": {
+                  "zh": "player_assets/slide032_zh.mp3",
+                  "en": "player_assets/slide032_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide032_zh.vtt",
+                  "en": "player_assets/slide032_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23736,
+                              "text": "塑料燃烧时可能迅速蔓延，因此在电线电缆、电子外壳、建筑材料、交通内饰和家居用品中，阻燃性能直接关系到安全。 电器电子领域常见材料包括PVC、PE、PC、PA、ABS和PC/ABS，用于线缆、插座、开关、充电器和设备外壳。"
+                        },
+                        {
+                              "start": 23736,
+                              "end": 49416,
+                              "text": "建筑中，PVC管材、型材和板材以及EPS、XPS保温材料都需满足相应阻燃要求。 汽车、轨道交通和船舶内饰需要降低火灾风险与烟毒； 洗衣机外壳、家具部件、玩具和灯具则需要在阻燃、外观、力学和使用安全之间取得平衡。 不同树脂的常用体系不同。"
+                        },
+                        {
+                              "start": 49416,
+                              "end": 70151,
+                              "text": "PVC可采用有机锡、复合稳定剂和磷系阻燃剂； PP、PE常用磷氮体系并配合无卤协效剂； ABS、PC要兼顾阻燃与透明或力学性能； 工程塑料还重视耐热和长期稳定。 发展方向是无卤、低烟低毒、高效且应用更广。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28752,
+                              "text": "Plastic fires can spread rapidly, so flame retardancy is directly related to safety in wires and cables, electronic housings, building materials, transportation interiors, and household products. In electrical and electronic fields, common materials include PVC, PE, PC, PA, ABS, and PC/ABS, used in cables, sockets, switches, chargers, and equipment housings."
+                        },
+                        {
+                              "start": 28752,
+                              "end": 60576,
+                              "text": "In construction, PVC pipes, profiles, sheets, and EPS or XPS insulation materials must meet corresponding flame-retardant requirements. Automotive, rail-transit, and ship interiors need to reduce fire risk and smoke toxicity. Washing-machine housings, furniture parts, toys, and lamps must balance flame retardancy, appearance, mechanical properties, and use safety. Different resins use different systems."
+                        },
+                        {
+                              "start": 60576,
+                              "end": 92088,
+                              "text": "PVC may use organotin, composite stabilizers, and phosphorus flame retardants. PP and PE often use phosphorus-nitrogen systems with halogen-free synergists. ABS and PC must balance flame retardancy with transparency or mechanical properties. Engineering plastics also emphasize heat resistance and long-term stability. Development is moving toward halogen-free, low-smoke, low-toxic, efficient, and broadly applicable systems."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 70.151,
+                  "en": 92.088
+            },
+            "alt": "第32张：6.4 阻燃剂在塑料中的应用"
+      },
+      {
+            "id": "slide033",
+            "index": 33,
+            "number": "6.5",
+            "title": "6.5 阻燃剂发展现状与开发动向",
+            "titleEn": "6.5 Development Status and Trends of Flame Retardants",
+            "image": "player_assets/slide033.webp",
+            "audio": {
+                  "zh": "player_assets/slide033_zh.mp3",
+                  "en": "player_assets/slide033_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide033_zh.vtt",
+                  "en": "player_assets/slide033_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 28536,
+                              "text": "阻燃剂正从传统卤系快速向无卤、高效和低毒体系转型，性能不断提高，应用从家电扩展到汽车、轨道交通和高端电子等领域。 总体趋势可以概括为高效化、环保化、功能化、协同化和专用化。 环保方向强调减少卤素、锑和铅等有害物，发展生物基、可降解、低烟和低腐蚀产品。"
+                        },
+                        {
+                              "start": 28536,
+                              "end": 59712,
+                              "text": "高效与多功能方向要求更低添加量、更少烟雾和熔滴，并兼具抗静电、抗菌或耐老化等作用。 协同复配通过磷、氮、无机组分和协效剂组合，实现“1加1大于2”。 反应型和聚合物型阻燃剂把阻燃基团引入高分子主链，可减少迁移和挥发。 纳米黏土、石墨烯、纳米氧化镁等新材料可形成致密阻隔层。"
+                        },
+                        {
+                              "start": 59712,
+                              "end": 66312,
+                              "text": "未来还要面向电子、轨道交通、新能源汽车和建筑等行业开发定制体系。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 27648,
+                              "text": "Flame retardants are rapidly shifting from traditional halogenated systems toward halogen-free, efficient, and low-toxicity systems. Performance is improving, and applications have expanded from household appliances to automobiles, rail transit, and high-end electronics. Overall trends can be summarized as efficiency, environmental protection, functionality, synergy, and specialization."
+                        },
+                        {
+                              "start": 27648,
+                              "end": 50711,
+                              "text": "Environmental development emphasizes reducing harmful substances such as halogens, antimony, and lead, and developing bio-based, degradable, low-smoke, and low-corrosion products. Efficiency and multifunctionality require lower dosage, less smoke and dripping, and additional functions such as antistatic, antibacterial, or aging resistance."
+                        },
+                        {
+                              "start": 50711,
+                              "end": 77015,
+                              "text": "Synergistic compounding combines phosphorus, nitrogen, inorganic components, and synergists to achieve an effect greater than the sum of individual parts. Reactive and polymeric flame retardants introduce flame-retardant groups into polymer chains, reducing migration and volatilization. Nanoclay, graphene, nano magnesium oxide, and other new materials can form dense barrier layers."
+                        },
+                        {
+                              "start": 77015,
+                              "end": 87022,
+                              "text": "In the future, customized systems will be developed for electronics, rail transit, new energy vehicles, construction, and other industries."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.312,
+                  "en": 87.022
+            },
+            "alt": "第33张：6.5 阻燃剂发展现状与开发动向"
+      },
+      {
+            "id": "slide034",
+            "index": 34,
+            "number": "7.1",
+            "title": "7.1 抗静电剂概述",
+            "titleEn": "7.1 Overview of Antistatic Agents",
+            "image": "player_assets/slide034.webp",
+            "audio": {
+                  "zh": "player_assets/slide034_zh.mp3",
+                  "en": "player_assets/slide034_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide034_zh.vtt",
+                  "en": "player_assets/slide034_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 25056,
+                              "text": "塑料、橡胶在摩擦、分离和流动过程中容易产生并积累静电。 静电会吸附灰尘、影响外观，也可能损伤电子元器件、引起电击，甚至点燃可燃物。 抗静电剂就是能够防止或消除静电积累的助剂，广泛用于薄膜、橡胶、电子电器、纺织、包装和医疗器械。"
+                        },
+                        {
+                              "start": 25056,
+                              "end": 51840,
+                              "text": "它主要通过两种机理工作：一是提高材料表面或内部的导电性，形成电荷泄漏通路； 二是提高表面吸湿性，吸收空气中的水分形成导电水膜。 理想抗静电剂用量少、效果明显，不明显影响力学性能、透明度和外观，还要耐迁移、耐热、耐候、安全环保。 应用方式包括内添加和表面处理。"
+                        },
+                        {
+                              "start": 51840,
+                              "end": 74207,
+                              "text": "内添加在加工时混入树脂，效果持久； 表面处理则形成导电或吸湿层，起效快。 使用后，材料表面电荷可及时消散，从而减少吸尘和放电风险。 核心提示： 抗静电的核心，是降低表面电阻并为电荷建立持续、可控的泄漏通道。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 30120,
+                              "text": "Plastics and rubber easily generate and accumulate static electricity during friction, separation, and flow. Static electricity can attract dust and harm appearance. It may also damage electronic components, cause electric shock, or even ignite flammable materials. Antistatic agents are additives that prevent or eliminate static accumulation, and are widely used in films, rubber, electronics, textiles, packaging, and medical devices."
+                        },
+                        {
+                              "start": 30120,
+                              "end": 44615,
+                              "text": "They mainly work through two mechanisms. One is to improve surface or internal conductivity and form a path for charge leakage. The other is to improve surface moisture absorption, so water from the air forms a conductive film."
+                        },
+                        {
+                              "start": 44615,
+                              "end": 73295,
+                              "text": "An ideal antistatic agent should work at low dosage, show clear effect, have little influence on mechanical properties, transparency, and appearance, and also be migration resistant, heat resistant, weather resistant, safe, and environmentally friendly. Application methods include internal addition and surface treatment. Internal addition mixes the agent into the resin during processing and gives longer-lasting effect."
+                        },
+                        {
+                              "start": 73295,
+                              "end": 94582,
+                              "text": "Surface treatment directly forms a conductive or moisture-absorbing layer and works quickly. After use, surface charges can dissipate in time, reducing dust attraction and discharge risk. Key point: antistatic protection means reducing surface resistance and building a continuous, controllable leakage path for charge."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 74.207,
+                  "en": 94.582
+            },
+            "alt": "第34张：7.1 抗静电剂概述"
+      },
+      {
+            "id": "slide035",
+            "index": 35,
+            "number": "7.2",
+            "title": "7.2 抗静电剂的作用机理",
+            "titleEn": "7.2 Mechanisms of Antistatic Agents",
+            "image": "player_assets/slide035.webp",
+            "audio": {
+                  "zh": "player_assets/slide035_zh.mp3",
+                  "en": "player_assets/slide035_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide035_zh.vtt",
+                  "en": "player_assets/slide035_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26856,
+                              "text": "静电通常经历三个阶段：材料摩擦或分离产生电荷，电荷在表面或内部积累，最后出现吸尘、放电或击穿。 抗静电剂通过提高导电性或吸湿性，使电荷及时泄漏或中和，从而阻止积累。 非离子型抗静电剂会在表面形成亲水层，吸收空气水分并降低表面电阻。"
+                        },
+                        {
+                              "start": 26856,
+                              "end": 53136,
+                              "text": "离子型抗静电剂含可移动离子，吸湿后形成离子通道，以离子迁移方式导电。 两性离子型同时含阴、阳离子基团，吸湿性和导电能力较强，迁移性相对较低。 内添加型分散在聚合物内部并逐步迁移到表面，形成导电或吸湿层； 外涂型直接在表面形成连续层，起效更快。"
+                        },
+                        {
+                              "start": 53136,
+                              "end": 64103,
+                              "text": "效果受助剂类型和用量、聚合物极性、环境湿度、温度及表面状态影响，必须通过配方和工艺优化获得持久稳定性能。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 23520,
+                              "text": "Static electricity usually goes through three stages: charges are generated by friction or separation, charges accumulate on the surface or inside the material, and finally dust attraction, discharge, or breakdown appears. Antistatic agents prevent accumulation by improving conductivity or moisture absorption so that charges can leak away or be neutralized in time."
+                        },
+                        {
+                              "start": 23520,
+                              "end": 50760,
+                              "text": "Nonionic antistatic agents form a hydrophilic layer on the surface, absorb moisture from air, and reduce surface resistance. Ionic antistatic agents contain mobile ions. After absorbing moisture, they form ion channels and conduct through ion migration. Amphoteric antistatic agents contain both anionic and cationic groups, giving strong moisture absorption and conductivity with relatively low migration."
+                        },
+                        {
+                              "start": 50760,
+                              "end": 80664,
+                              "text": "Internal additives disperse inside the polymer and gradually migrate to the surface to form a conductive or moisture-absorbing layer. External coatings directly form a continuous layer on the surface and act faster. Performance is influenced by additive type and dosage, polymer polarity, environmental humidity, temperature, and surface condition. Formulation and process optimization are necessary for durable and stable antistatic performance."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 64.103,
+                  "en": 80.664
+            },
+            "alt": "第35张：7.2 抗静电剂的作用机理"
+      },
+      {
+            "id": "slide036",
+            "index": 36,
+            "number": "7.3",
+            "title": "7.3 抗静电剂的主要种类",
+            "titleEn": "7.3 Main Types of Antistatic Agents",
+            "image": "player_assets/slide036.webp",
+            "audio": {
+                  "zh": "player_assets/slide036_zh.mp3",
+                  "en": "player_assets/slide036_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide036_zh.vtt",
+                  "en": "player_assets/slide036_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 20663,
+                              "text": "抗静电剂按结构和机理可分为离子型、非离子型、两性型、导电型和复合型。 离子型包括季铵盐、吡啶鎓盐等阳离子品种，以及磺酸盐、硫酸盐和羧酸盐等阴离子品种，吸水后形成离子导电层，导电效率较高。"
+                        },
+                        {
+                              "start": 20663,
+                              "end": 50591,
+                              "text": "非离子型如聚乙二醇、聚丙二醇、脂肪酸酰胺和聚醚类，靠吸湿形成水膜降低表面电阻，吸湿性好但效果较受环境湿度影响。 两性型同时具有阴、阳离子基团，兼具吸湿和离子导电作用，持久性较好。 导电型材料包括导电炭黑、石墨、碳纤维、金属粉末和导电聚合物，可直接建立电子导电网络。"
+                        },
+                        {
+                              "start": 50591,
+                              "end": 63214,
+                              "text": "复合型则把两种或更多机理组合，实现协同增效。 选择时需考虑树脂极性、制品厚度、使用环境、力学和成本要求。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28824,
+                              "text": "Antistatic agents can be divided by structure and mechanism into ionic, nonionic, amphoteric, conductive, and composite types. Ionic agents include cationic species such as quaternary ammonium salts and pyridinium salts, and anionic species such as sulfonates, sulfates, and carboxylates. After absorbing water, they form ionic conductive layers and have relatively high conductivity."
+                        },
+                        {
+                              "start": 28824,
+                              "end": 56592,
+                              "text": "Nonionic types include polyethylene glycol, polypropylene glycol, fatty acid amides, and polyethers. They rely on moisture absorption to form a water film and reduce surface resistance. They absorb moisture well, but their effect is more influenced by environmental humidity. Amphoteric types contain both anionic and cationic groups, combining moisture absorption and ionic conduction with better durability."
+                        },
+                        {
+                              "start": 56592,
+                              "end": 83952,
+                              "text": "Conductive materials include conductive carbon black, graphite, carbon fiber, metal powder, and conductive polymers, which can directly build electronic conductive networks. Composite types combine two or more mechanisms to create synergy. Selection should consider resin polarity, product thickness, use environment, mechanical requirements, and cost."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 63.214,
+                  "en": 83.952
+            },
+            "alt": "第36张：7.3 抗静电剂的主要种类"
+      },
+      {
+            "id": "slide037",
+            "index": 37,
+            "number": "7.4",
+            "title": "7.4 抗静电剂的应用",
+            "titleEn": "7.4 Applications of Antistatic Agents",
+            "image": "player_assets/slide037.webp",
+            "audio": {
+                  "zh": "player_assets/slide037_zh.mp3",
+                  "en": "player_assets/slide037_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide037_zh.vtt",
+                  "en": "player_assets/slide037_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 25104,
+                              "text": "抗静电剂有外部处理和内部添加两条应用路线。 外部法一般先配制0. 1%至2. 0%的溶液，清洗制品后采用涂布、喷雾或浸渍，最后在约50摄氏度条件下干燥。 涂布前要除去油污，水洗后再用醇类处理，并注意无尘施工。 阳离子型和两性型通常效果较好。"
+                        },
+                        {
+                              "start": 25104,
+                              "end": 52032,
+                              "text": "内部法则把抗静电剂与树脂共混加工，优点是耐洗涤、耐摩擦、耐热且效果持久。 用量并非越多越好，通常随树脂和制品变化：PE、PP常在0. 5%至1. 0%，薄膜用量可更低，厚制品或苯乙烯类材料可能更高。 不同树脂还需针对性选型。 聚烯烃结晶度高，外部迁移较少；"
+                        },
+                        {
+                              "start": 52032,
+                              "end": 71855,
+                              "text": "PS、ABS需兼顾制品透明和加工； PVC要考虑HCl、增塑剂和稳定剂对抗静电剂的影响。 食品接触和玩具产品还必须关注急性与慢性毒性。 未来方向是耐久、低毒、耐高温和永久抗静电。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 33264,
+                              "text": "Antistatic agents can be applied by external treatment or internal addition. In the external method, a solution of about 0. 1 to 2. 0 percent is first prepared. The product is cleaned, then coated, sprayed, or dipped, and finally dried at about 50 degrees Celsius. Before coating, oil should be removed, the surface should be washed with water and treated with alcohol, and dust-free operation is important. Cationic and amphoteric types usually perform well."
+                        },
+                        {
+                              "start": 33264,
+                              "end": 63768,
+                              "text": "The internal method mixes antistatic agents with resin during processing. Its advantages are resistance to washing, friction, and heat, and a longer-lasting effect. More dosage is not always better. Typical dosage varies with resin and product. PE and PP often use 0. 5 to 1. 0 percent, film may use less, while thick products or styrenic materials may require more. Different resins need targeted selection."
+                        },
+                        {
+                              "start": 63768,
+                              "end": 93624,
+                              "text": "Polyolefins have high crystallinity and limited outward migration. PS and ABS must balance transparency and processing. PVC requires attention to the influence of HCl, plasticizers, and stabilizers on the antistatic agent. Food-contact and toy products must also consider acute and chronic toxicity. Future development emphasizes durability, low toxicity, high-temperature resistance, and permanent antistatic performance."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 71.855,
+                  "en": 93.624
+            },
+            "alt": "第37张：7.4 抗静电剂的应用"
+      },
+      {
+            "id": "slide038",
+            "index": 38,
+            "number": "8.1",
+            "title": "8.1 硫化剂与硫化助剂概述",
+            "titleEn": "8.1 Overview of Vulcanizing Agents and Vulcanization Auxiliaries",
+            "image": "player_assets/slide038.webp",
+            "audio": {
+                  "zh": "player_assets/slide038_zh.mp3",
+                  "en": "player_assets/slide038_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide038_zh.vtt",
+                  "en": "player_assets/slide038_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23832,
+                              "text": "橡胶硫化是在一定条件下，借助硫化剂和硫化助剂使橡胶分子链发生交联，形成三维网状结构的过程。 生胶分子链基本呈线性，软、黏、强度低； 硫化后形成网络，强度、弹性、耐磨、耐热和尺寸稳定性显著提高，因此硫化是橡胶工业的核心工艺。"
+                        },
+                        {
+                              "start": 23832,
+                              "end": 48408,
+                              "text": "硫化剂是引发或形成交联的主要原料，负责提供硫或其他交联元素，并决定交联密度。 硫化助剂则用于促进反应、调节速度、防止早期硫化和改善硫化胶性能，包括促进剂、活性剂、防焦剂、迟延剂等。 硫化剂像主角，硫化助剂像配角，二者必须合理配合。"
+                        },
+                        {
+                              "start": 48408,
+                              "end": 61991,
+                              "text": "体系选择要根据橡胶种类、制品用途、性能要求和加工条件。 只有交联速度、加工安全与最终性能达到平衡，才能获得优质硫化胶。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28248,
+                              "text": "Rubber vulcanization is the process in which rubber molecular chains are crosslinked under certain conditions with the help of vulcanizing agents and vulcanization auxiliaries, forming a three-dimensional network. Raw rubber chains are basically linear, soft, sticky, and low in strength. After vulcanization, the network structure gives much better strength, elasticity, wear resistance, heat resistance, and dimensional stability."
+                        },
+                        {
+                              "start": 28248,
+                              "end": 56928,
+                              "text": "Therefore, vulcanization is a core process in the rubber industry. Vulcanizing agents are the main materials that initiate or form crosslinks. They provide sulfur or other crosslinking elements and determine crosslink density. Vulcanization auxiliaries promote the reaction, adjust reaction speed, prevent premature vulcanization, and improve properties of vulcanized rubber. They include accelerators, activators, scorch retarders, and retarders."
+                        },
+                        {
+                              "start": 56928,
+                              "end": 79991,
+                              "text": "The vulcanizing agent is like the main actor, while auxiliaries are supporting actors. They must be properly matched. System selection depends on rubber type, product use, performance requirements, and processing conditions. Only when crosslinking rate, processing safety, and final properties are balanced can high-quality vulcanized rubber be obtained."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 61.991,
+                  "en": 79.991
+            },
+            "alt": "第38张：8.1 硫化剂与硫化助剂概述"
+      },
+      {
+            "id": "slide039",
+            "index": 39,
+            "number": "8.2",
+            "title": "8.2 橡胶硫化的基本原理",
+            "titleEn": "8.2 Basic Principles of Rubber Vulcanization",
+            "image": "player_assets/slide039.webp",
+            "audio": {
+                  "zh": "player_assets/slide039_zh.mp3",
+                  "en": "player_assets/slide039_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide039_zh.vtt",
+                  "en": "player_assets/slide039_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 25272,
+                              "text": "橡胶硫化的本质是交联反应。 未硫化橡胶的分子链彼此独立，性能和实用价值有限； 形成三维网络后，弹性、硬度、拉伸强度、抗张强度、耐热、耐候和耐溶剂性能明显提高。 交联有两种常见形式。 桥式交联利用硫黄及其同系物或二官能化合物，在分子链之间形成“桥”；"
+                        },
+                        {
+                              "start": 25272,
+                              "end": 53760,
+                              "text": "碳碳交联则由过氧化物或辐射等产生自由基，使链间碳原子直接连接。 硫黄、秋兰姆、对醌二肟和硫醇等都可形成不同交联结构。 随硫化时间增加，性能先上升，在正硫化点达到最佳，随后过度硫化会引起部分性能下降。 天然橡胶胶料的曲线可能出现返原，而理想曲线应保持平台。"
+                        },
+                        {
+                              "start": 53760,
+                              "end": 63335,
+                              "text": "配方中还需把硫化剂与促进剂、活性剂和防焦剂组合，使加工安全、反应速度和使用寿命达到平衡。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 24528,
+                              "text": "The essence of rubber vulcanization is a crosslinking reaction. In unvulcanized rubber, molecular chains are independent of each other and practical performance is limited. After a three-dimensional network forms, elasticity, hardness, tensile strength, heat resistance, weather resistance, and solvent resistance are greatly improved. There are two common crosslinking forms."
+                        },
+                        {
+                              "start": 24528,
+                              "end": 51864,
+                              "text": "Bridge crosslinking uses sulfur, sulfur homologues, or bifunctional compounds to form bridges between molecular chains. Carbon-carbon crosslinking uses radicals generated by peroxides or radiation to connect carbon atoms directly between chains. Sulfur, thiurams, p-quinone dioxime, thiols, and other agents can form different crosslink structures."
+                        },
+                        {
+                              "start": 51864,
+                              "end": 78840,
+                              "text": "As vulcanization time increases, properties first improve and reach the optimum cure point, then over-vulcanization may reduce some properties. Natural rubber compounds may show reversion, while an ideal curve should maintain a plateau. The formulation must combine vulcanizing agents with accelerators, activators, and scorch retarders so that processing safety, reaction speed, and service life are balanced."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 63.335,
+                  "en": 78.84
+            },
+            "alt": "第39张：8.2 橡胶硫化的基本原理"
+      },
+      {
+            "id": "slide040",
+            "index": 40,
+            "number": "8.3",
+            "title": "8.3 硫化剂各论",
+            "titleEn": "8.3 Main Vulcanizing Agents",
+            "image": "player_assets/slide040.webp",
+            "audio": {
+                  "zh": "player_assets/slide040_zh.mp3",
+                  "en": "player_assets/slide040_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide040_zh.vtt",
+                  "en": "player_assets/slide040_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 28296,
+                              "text": "硫化剂是使橡胶发生交联的主要药剂，不同品种的活性、适用胶种、硫化速度和最终性能各不相同。 硫黄最常用、来源丰富且成本低，适合多数通用橡胶，但可能出现硫化返原和喷霜。 有机过氧化物受热产生自由基，形成稳定的碳碳交联，适合EPDM等不饱和度较低的橡胶，耐热耐老化性能好。"
+                        },
+                        {
+                              "start": 28296,
+                              "end": 53352,
+                              "text": "氧化锌、氧化镁等金属氧化物常与活化剂配合，对某些橡胶形成金属皂或离子交联。 酚醛树脂硫化温度较低、机械性能好，常用于丁基橡胶等。 胺类活性高，常作超速硫化剂或后效性硫化剂； 秋兰姆类活性可调，既可作主硫化剂也可作辅助促进剂。"
+                        },
+                        {
+                              "start": 53352,
+                              "end": 62615,
+                              "text": "另有酸酐、三聚氰胺、咪唑、马来酰亚胺和不饱和单体等特殊交联剂，用于特种橡胶或热固性树脂。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 27312,
+                              "text": "Vulcanizing agents are the main chemicals that crosslink rubber. Different types have different activity, suitable rubber types, curing speed, and final properties. Sulfur is the most widely used. It is abundant and low-cost, and suits most general-purpose rubbers, but it may cause reversion and sulfur blooming. Organic peroxides decompose under heat to form radicals and create stable carbon-carbon crosslinks."
+                        },
+                        {
+                              "start": 27312,
+                              "end": 53904,
+                              "text": "They are suitable for rubbers with lower unsaturation, such as EPDM, and give good heat and aging resistance. Metal oxides such as zinc oxide and magnesium oxide are often used with activators, and in some rubbers they form metal soap or ionic crosslinks. Phenolic resins cure at relatively low temperature and give good mechanical properties, often used for butyl rubber."
+                        },
+                        {
+                              "start": 53904,
+                              "end": 79824,
+                              "text": "Amines have high activity and are often used as ultra-fast or delayed-action vulcanizing agents. Thiurams have adjustable activity and may act as main vulcanizing agents or auxiliary accelerators. Other special crosslinking agents include acid anhydrides, melamine, imidazoles, maleimides, and unsaturated monomers, used for specialty rubbers or thermosetting resins."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 62.615,
+                  "en": 79.824
+            },
+            "alt": "第40张：8.3 硫化剂各论"
+      },
+      {
+            "id": "slide041",
+            "index": 41,
+            "number": "8.4",
+            "title": "8.4 硫化剂作用机理",
+            "titleEn": "8.4 Mechanisms of Vulcanizing Agents",
+            "image": "player_assets/slide041.webp",
+            "audio": {
+                  "zh": "player_assets/slide041_zh.mp3",
+                  "en": "player_assets/slide041_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide041_zh.vtt",
+                  "en": "player_assets/slide041_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26520,
+                              "text": "不同硫化剂通过不同化学路径使高分子链交联。 硫黄在加热和促进剂作用下形成活性硫，在不饱和橡胶双键附近建立单硫、双硫或多硫桥，提高强度、弹性和耐热性能。 氧化锌本身常作为活化剂，与脂肪酸生成锌皂，加速活性硫物种形成，降低硫化温度并改善硫化胶性能。"
+                        },
+                        {
+                              "start": 26520,
+                              "end": 52800,
+                              "text": "过氧化物受热分解为自由基，自由基从聚合物链夺氢并使链间形成碳碳键，交联耐热且稳定。 金属氧化物和金属盐还能与羧基等官能团形成配位键或离子键。 异氰酸酯与羟基或氨基反应，生成氨基甲酸酯键或脲键； 醛类可与含氨基聚合物缩合形成亚胺键网络。"
+                        },
+                        {
+                              "start": 52800,
+                              "end": 59064,
+                              "text": "合理选择体系，才能控制交联密度、耐热性、耐老化和加工条件。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 25752,
+                              "text": "Different vulcanizing agents crosslink polymer chains through different chemical paths. Under heat and accelerator action, sulfur forms active sulfur species and creates monosulfide, disulfide, or polysulfide bridges near double bonds in unsaturated rubber. These bridges improve strength, elasticity, and heat resistance. Zinc oxide often acts as an activator."
+                        },
+                        {
+                              "start": 25752,
+                              "end": 49392,
+                              "text": "It reacts with fatty acids to form zinc soap, accelerates the formation of active sulfur species, lowers vulcanization temperature, and improves rubber properties. Peroxides decompose under heat into radicals. These radicals abstract hydrogen from polymer chains and form carbon-carbon bonds between chains, giving heat-resistant and stable crosslinks."
+                        },
+                        {
+                              "start": 49392,
+                              "end": 77640,
+                              "text": "Metal oxides and metal salts can also form coordination or ionic bonds with carboxyl and other functional groups. Isocyanates react with hydroxyl or amino groups to form urethane or urea bonds. Aldehydes can condense with amino-containing polymers to form imine networks. Only by selecting the system properly can crosslink density, heat resistance, aging resistance, and processing conditions be controlled."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 59.064,
+                  "en": 77.64
+            },
+            "alt": "第41张：8.4 硫化剂作用机理"
+      },
+      {
+            "id": "slide042",
+            "index": 42,
+            "number": "8.5",
+            "title": "8.5 硫化促进剂",
+            "titleEn": "8.5 Vulcanization Accelerators",
+            "image": "player_assets/slide042.webp",
+            "audio": {
+                  "zh": "player_assets/slide042_zh.mp3",
+                  "en": "player_assets/slide042_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide042_zh.vtt",
+                  "en": "player_assets/slide042_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 21815,
+                              "text": "硫化促进剂能够缩短硫化时间、降低硫化温度、减少硫黄用量，并提高硫化胶的抗张强度、拉伸强度、耐磨、耐老化和储存稳定性。 早期曾按促进速度分为超速、半超速、中速和低速，但这种方法不能充分反映促进剂结构和实际作用。"
+                        },
+                        {
+                              "start": 21815,
+                              "end": 51551,
+                              "text": "现代通常按化学结构分类，包括二硫代氨基甲酸盐、秋兰姆、黄原酸盐、噻唑、次磺酰胺、硫脲、胍、醛胺和混合促进剂等。 促进机理较复杂，但总体上是促进剂参与硫黄活化，形成活性中间体，使硫更高效地与橡胶分子链交联。 二硫代氨基甲酸盐活性很高，适合快速或低温硫化；"
+                        },
+                        {
+                              "start": 51551,
+                              "end": 66838,
+                              "text": "秋兰姆可作促进剂，也可作无硫硫化剂； 噻唑耐热安全性较好； 其他品种常通过复配调节焦烧安全和硫化速度。 合理搭配才能得到高效、稳定的硫化体系。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 28320,
+                              "text": "Vulcanization accelerators shorten curing time, lower curing temperature, reduce sulfur dosage, and improve tensile strength, wear resistance, aging resistance, and storage stability of vulcanized rubber. In earlier practice, accelerators were classified by speed as ultra-fast, semi-ultra-fast, medium, and slow, but this method does not fully reflect structure and practical function."
+                        },
+                        {
+                              "start": 28320,
+                              "end": 57000,
+                              "text": "Modern classification usually follows chemical structure, including dithiocarbamates, thiurams, xanthates, thiazoles, sulfenamides, thioureas, guanidines, aldehyde-amines, and mixed accelerators. The mechanism is complex, but in general accelerators participate in sulfur activation and form active intermediates, allowing sulfur to crosslink rubber chains more efficiently."
+                        },
+                        {
+                              "start": 57000,
+                              "end": 81840,
+                              "text": "Dithiocarbamates have very high activity and are suitable for fast or low-temperature vulcanization. Thiurams can act as accelerators and also as sulfur-free vulcanizing agents. Thiazoles have better heat and processing safety. Other types are often combined to adjust scorch safety and curing rate. Proper matching is necessary for an efficient and stable vulcanization system."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.838,
+                  "en": 81.84
+            },
+            "alt": "第42张：8.5 硫化促进剂"
+      },
+      {
+            "id": "slide043",
+            "index": 43,
+            "number": "8.6",
+            "title": "8.6 硫化活性剂",
+            "titleEn": "8.6 Vulcanization Activators",
+            "image": "player_assets/slide043.webp",
+            "audio": {
+                  "zh": "player_assets/slide043_zh.mp3",
+                  "en": "player_assets/slide043_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide043_zh.vtt",
+                  "en": "player_assets/slide043_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 17927,
+                              "text": "硫化活性剂是能够增强有机促进剂活性、加快反应或缩短硫化时间的助剂。 它与促进剂共同形成活性中间体，或改善体系的反应环境，从而提高交联效率和硫化胶性能。 活性剂可分为无机和有机两类。"
+                        },
+                        {
+                              "start": 17927,
+                              "end": 47015,
+                              "text": "无机活性剂主要是金属氧化物，其中氧化锌最重要、应用最广，氧化镁可与其配合，氧化钙和氧化铅则用于特定体系。 有机活性剂包括硬脂酸、月桂酸和二乙醇胺等，其中硬脂酸可与氧化锌生成锌皂，提高促进剂活性。 使用活性剂后，可以减少促进剂用量、缩短硫化时间、提高交联度和热稳定性。"
+                        },
+                        {
+                              "start": 47015,
+                              "end": 65902,
+                              "text": "但必须控制用量、保证分散均匀、注意与酸性物质和其他助剂的相容，并结合胶种、促进剂和硫化温度选择。 核心提示： 活性剂不是主硫化剂，却是提高促进效率、降低成本和稳定硫化过程的重要环节。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 26544,
+                              "text": "Vulcanization activators are additives that enhance the activity of organic accelerators, speed up reactions, or shorten vulcanization time. Together with accelerators, they form active intermediates or improve the reaction environment, thereby increasing crosslinking efficiency and properties of vulcanized rubber. Activators are divided into inorganic and organic types. Inorganic activators are mainly metal oxides."
+                        },
+                        {
+                              "start": 26544,
+                              "end": 51168,
+                              "text": "Zinc oxide is the most important and most widely used. Magnesium oxide can be used with it, while calcium oxide and lead oxide are used in specific systems. Organic activators include stearic acid, lauric acid, and diethanolamine. Stearic acid can react with zinc oxide to form zinc soap and improve accelerator activity."
+                        },
+                        {
+                              "start": 51168,
+                              "end": 75432,
+                              "text": "After activators are used, accelerator dosage can be reduced, vulcanization time shortened, crosslink density improved, and heat stability enhanced. However, dosage must be controlled, dispersion must be uniform, compatibility with acidic substances and other additives must be considered, and selection should depend on rubber type, accelerator, and curing temperature."
+                        },
+                        {
+                              "start": 75432,
+                              "end": 87263,
+                              "text": "Key point: an activator is not the main vulcanizing agent, but it is important for improving acceleration efficiency, reducing cost, and stabilizing the vulcanization process."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 65.902,
+                  "en": 87.263
+            },
+            "alt": "第43张：8.6 硫化活性剂"
+      },
+      {
+            "id": "slide044",
+            "index": 44,
+            "number": "8.7",
+            "title": "8.7 防焦剂",
+            "titleEn": "8.7 Scorch Retarders",
+            "image": "player_assets/slide044.webp",
+            "audio": {
+                  "zh": "player_assets/slide044_zh.mp3",
+                  "en": "player_assets/slide044_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide044_zh.vtt",
+                  "en": "player_assets/slide044_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 24384,
+                              "text": "橡胶在最终硫化前要经历塑炼、混炼、压延、压出、停放和储存等过程。 机械生热或环境温度过高，可能使胶料提前交联，出现变硬、塑性下降和难加工，这就是焦烧。 防焦剂只需少量加入，就能延迟早期硫化，因此也叫硫化延迟剂。"
+                        },
+                        {
+                              "start": 24384,
+                              "end": 53136,
+                              "text": "防焦的意义在于提高加工和储存安全性，延长焦烧时间，减少胶料报废和设备损伤，同时保证制品外观与质量。 理想防焦剂应有效防焦，但在正式硫化开始后不明显降低硫化速度，不延长总硫化时间，也不损害硫化胶的物理、化学和使用性能。 选择时要结合生胶种类、硫化体系、加工过程和温度。"
+                        },
+                        {
+                              "start": 53136,
+                              "end": 67871,
+                              "text": "常见防焦剂有有机酸、亚硝基化合物和硫代酰亚胺类，其中CTP使用广泛。 CTP与次磺酰胺促进剂并用，通常可显著延长焦烧时间而不影响正常硫化。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 30144,
+                              "text": "Before final vulcanization, rubber goes through mastication, mixing, calendering, extrusion, storage, and other operations. Mechanical heat or high ambient temperature may cause the compound to crosslink too early, making it hard, reducing plasticity, and causing processing difficulty. This is scorch. A small amount of scorch retarder can delay early vulcanization, so it is also called a vulcanization retarder."
+                        },
+                        {
+                              "start": 30144,
+                              "end": 56688,
+                              "text": "The purpose of scorch prevention is to improve processing and storage safety, extend scorch time, reduce scrap and equipment damage, and ensure product appearance and quality. An ideal scorch retarder should effectively prevent scorch, but after formal vulcanization begins, it should not obviously reduce curing speed, extend total curing time, or damage physical, chemical, and service properties of the vulcanizate."
+                        },
+                        {
+                              "start": 56688,
+                              "end": 80184,
+                              "text": "Selection should consider raw rubber type, vulcanization system, processing steps, and temperature. Common scorch retarders include organic acids, nitroso compounds, and thioimides. CTP is widely used. When CTP is used with sulfenamide accelerators, it can usually greatly extend scorch time without affecting normal vulcanization."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 67.871,
+                  "en": 80.184
+            },
+            "alt": "第44张：8.7 防焦剂"
+      },
+      {
+            "id": "slide045",
+            "index": 45,
+            "number": "8.8",
+            "title": "8.8 几种常见的硫化体系",
+            "titleEn": "8.8 Common Vulcanization Systems",
+            "image": "player_assets/slide045.webp",
+            "audio": {
+                  "zh": "player_assets/slide045_zh.mp3",
+                  "en": "player_assets/slide045_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide045_zh.vtt",
+                  "en": "player_assets/slide045_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 30648,
+                              "text": "橡胶必须通过硫化体系形成交联网络，才能提高弹性、强度和耐热性。 常见体系分为硫黄硫化和非硫黄硫化。 普通硫黄硫化适合天然橡胶、SBR、NBR、IIR和EPDM等，初始性能好，但多硫键比例高时耐热氧老化较弱。 非硫黄体系包括过氧化物、金属氧化物、酚醛树脂、醌类衍生物和马来酰亚胺等。"
+                        },
+                        {
+                              "start": 30648,
+                              "end": 57672,
+                              "text": "过氧化物形成碳碳交联，热稳定和耐老化较好，但动态性能和气味等需综合考虑。 配方中酸性物会影响过氧化物交联，少量碱性组分可提高效率，ZnO与硬脂酸等组分也要正确理解其活化和分散作用。 金属氧化物常用于氯丁橡胶、氯化橡胶等体系，ZnO与MgO并用效果较好。"
+                        },
+                        {
+                              "start": 57672,
+                              "end": 69455,
+                              "text": "酚醛树脂适合IIR，醌类耐热但成本较高，马来酰亚胺可提高交联速度。 选择时应依据胶种、耐热要求和制品用途。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 30816,
+                              "text": "Rubber must form a crosslinked network through a vulcanization system in order to improve elasticity, strength, and heat resistance. Common systems are divided into sulfur vulcanization and non-sulfur vulcanization. Conventional sulfur vulcanization is suitable for natural rubber, SBR, NBR, IIR, EPDM, and others. It gives good initial properties, but when the proportion of polysulfide bonds is high, heat-oxygen aging resistance is weaker."
+                        },
+                        {
+                              "start": 30816,
+                              "end": 56520,
+                              "text": "Non-sulfur systems include peroxides, metal oxides, phenolic resins, quinone derivatives, and maleimides. Peroxides form carbon-carbon crosslinks and give better heat stability and aging resistance, but dynamic properties and odor must be considered. Acidic components in the formulation affect peroxide crosslinking, while small amounts of basic components can improve efficiency."
+                        },
+                        {
+                              "start": 56520,
+                              "end": 90120,
+                              "text": "ZnO, stearic acid, and related components must also be correctly understood for activation and dispersion. Metal oxides are often used for chloroprene rubber, chlorinated rubber, and similar systems, and ZnO used with MgO often works well. Phenolic resin suits IIR, quinone systems have good heat resistance but high cost, and maleimides can improve crosslinking speed. Selection should be based on rubber type, heat-resistance requirements, and product use."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 69.455,
+                  "en": 90.12
+            },
+            "alt": "第45张：8.8 几种常见的硫化体系"
+      },
+      {
+            "id": "slide046",
+            "index": 46,
+            "number": "9.1",
+            "title": "9.1 填充剂",
+            "titleEn": "9.1 Fillers",
+            "image": "player_assets/slide046.webp",
+            "audio": {
+                  "zh": "player_assets/slide046_zh.mp3",
+                  "en": "player_assets/slide046_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide046_zh.vtt",
+                  "en": "player_assets/slide046_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 18959,
+                              "text": "填充剂是加入塑料或橡胶中的粉末、粒状或纤维状材料，常用于改善性能、降低成本或赋予特殊功能。 它既能增加制品体积、提高产量和减少树脂用量，也可改善硬度、尺寸稳定、耐热、绝缘或阻燃等性能。"
+                        },
+                        {
+                              "start": 18959,
+                              "end": 42719,
+                              "text": "按来源和功能，可分为碳酸钙、滑石粉、白炭黑、高岭土、云母等无机填料，木粉和有机纤维等有机填料，以及玻璃纤维、炭黑等功能性填料。 适量填充可能提高刚性、硬度和耐热性，并降低成本； 过量则可能降低韧性、透明性和冲击强度，使加工与表面质量变差。"
+                        },
+                        {
+                              "start": 42719,
+                              "end": 63718,
+                              "text": "使用时，填料应先与树脂充分混合，再经过分散和成型。 分散均匀是发挥性能的关键，团聚会造成缺陷。 选型还要考虑粒径形状、白度颜色、纯度、表面处理、分散性、与树脂的相容性、力学影响和成本。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 25512,
+                              "text": "Fillers are powder, granular, or fibrous materials added to plastics or rubber, often to improve properties, reduce cost, or provide special functions. They can increase product volume, raise output, and reduce resin consumption. They may also improve hardness, dimensional stability, heat resistance, insulation, flame retardancy, and other properties."
+                        },
+                        {
+                              "start": 25512,
+                              "end": 56040,
+                              "text": "By source and function, fillers include inorganic fillers such as calcium carbonate, talc, silica, kaolin, and mica; organic fillers such as wood flour and organic fibers; and functional fillers such as glass fiber and carbon black. Proper filling may increase rigidity, hardness, and heat resistance while lowering cost. Excessive filling may reduce toughness, transparency, and impact strength, and may worsen processing and surface quality."
+                        },
+                        {
+                              "start": 56040,
+                              "end": 80760,
+                              "text": "In use, the filler should first be thoroughly mixed with resin, then dispersed and formed. Uniform dispersion is the key to performance, while agglomeration causes defects. Selection should consider particle size and shape, whiteness and color, purity, surface treatment, dispersibility, compatibility with resin, mechanical influence, and cost."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 63.718,
+                  "en": 80.76
+            },
+            "alt": "第46张：9.1 填充剂"
+      },
+      {
+            "id": "slide047",
+            "index": 47,
+            "number": "9.2",
+            "title": "9.2 润滑剂",
+            "titleEn": "9.2 Lubricants",
+            "image": "player_assets/slide047.webp",
+            "audio": {
+                  "zh": "player_assets/slide047_zh.mp3",
+                  "en": "player_assets/slide047_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide047_zh.vtt",
+                  "en": "player_assets/slide047_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 26328,
+                              "text": "润滑剂用于降低聚合物加工中物料与金属表面、以及物料内部之间的摩擦和黏附，从而改善加工工艺、制品质量和生产效率。 它可在聚合物与设备之间形成薄膜，降低摩擦，防止熔体黏附并促进脱模。 润滑剂应与树脂相容适度、耐热、不易析出，且不影响透明度和表面性能。"
+                        },
+                        {
+                              "start": 26328,
+                              "end": 54216,
+                              "text": "按作用可分为外部润滑剂、内部润滑剂、复合润滑剂和加工助剂型润滑剂。 塑料挤出、注塑、压延和吹膜中，润滑剂可降低熔体与设备摩擦、减少黏模并改善表面； 橡胶混炼、压出和模压中，则有利于流动、脱模和减少损伤。 常见品种包括金属皂、脂肪酸及酯、石蜡和聚乙烯蜡、硅油等。"
+                        },
+                        {
+                              "start": 54216,
+                              "end": 64319,
+                              "text": "使用时要选择与树脂相容的品种，控制用量，避免过量引起发花或爽滑异常，并注意与其他助剂的相容和协同。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 22727,
+                              "text": "Lubricants reduce friction and adhesion between polymer materials and metal surfaces, and also within the material itself during processing. They improve processing, product quality, and production efficiency. A lubricant can form a thin film between polymer and equipment, reduce friction, prevent melt adhesion, and promote mold release."
+                        },
+                        {
+                              "start": 22727,
+                              "end": 42982,
+                              "text": "Lubricants should have suitable compatibility with resin, good heat resistance, low tendency to exude, and little influence on transparency and surface properties. By function, they are divided into external lubricants, internal lubricants, compound lubricants, and processing-aid lubricants."
+                        },
+                        {
+                              "start": 42982,
+                              "end": 73222,
+                              "text": "In plastic extrusion, injection molding, calendering, and film blowing, lubricants reduce friction between melt and equipment, reduce mold sticking, and improve surface quality. In rubber mixing, extrusion, and molding, they help flow, release, and reduce damage. Common types include metal soaps, fatty acids and esters, paraffin and polyethylene wax, and silicone oil."
+                        },
+                        {
+                              "start": 73222,
+                              "end": 85845,
+                              "text": "In use, select a type compatible with the resin, control dosage, avoid blooming or abnormal slip caused by excess, and consider compatibility and synergy with other additives."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 64.319,
+                  "en": 85.845
+            },
+            "alt": "第47张：9.2 润滑剂"
+      },
+      {
+            "id": "slide048",
+            "index": 48,
+            "number": "9.3",
+            "title": "9.3 发泡剂",
+            "titleEn": "9.3 Foaming Agents",
+            "image": "player_assets/slide048.webp",
+            "audio": {
+                  "zh": "player_assets/slide048_zh.mp3",
+                  "en": "player_assets/slide048_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide048_zh.vtt",
+                  "en": "player_assets/slide048_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 23327,
+                              "text": "发泡剂能使橡胶或塑料形成微孔结构，让材料更轻、更柔软，并获得保温和隔音性能。 它可以是固体、液体或气体。 物理发泡剂依靠自身物理状态变化产生气体，包括压缩气体、挥发性液体和可溶性固体； 化学发泡剂则受热分解或反应释放气体。"
+                        },
+                        {
+                              "start": 23327,
+                              "end": 52727,
+                              "text": "无机化学发泡剂有碳酸氢盐、亚硝酸盐、硼氢化物和过氧化氢等； 有机化学发泡剂常含偶氮或相关含氮结构，受热释放氮气，分散性和发泡率较好。 关键指标包括分解温度和发气量：温度要与树脂加工窗口匹配，发气量影响泡孔数量和用量。 选用时还要关注残渣、气味、粉尘和可燃性。"
+                        },
+                        {
+                              "start": 52727,
+                              "end": 65734,
+                              "text": "发泡助剂可调节分解温度和速度，改善工艺并稳定泡孔。 最终要结合聚合物、加工温度、发气量、残渣和安全性，获得均匀细密的泡孔结构。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 31392,
+                              "text": "Foaming agents allow rubber or plastic to form a microcellular structure, making materials lighter and softer, and giving thermal insulation and sound insulation properties. A foaming agent may be solid, liquid, or gas. Physical foaming agents produce gas through changes in physical state, including compressed gases, volatile liquids, and soluble solids. Chemical foaming agents release gas by thermal decomposition or reaction."
+                        },
+                        {
+                              "start": 31392,
+                              "end": 62904,
+                              "text": "Inorganic chemical foaming agents include bicarbonates, nitrites, borohydrides, and hydrogen peroxide. Organic chemical foaming agents often contain azo or related nitrogen-containing structures and release nitrogen when heated, giving good dispersion and foaming efficiency. Key indicators include decomposition temperature and gas yield. The temperature should match the resin processing window, while gas yield affects cell quantity and dosage."
+                        },
+                        {
+                              "start": 62904,
+                              "end": 85991,
+                              "text": "Selection should also consider residue, odor, dust, and flammability. Foaming auxiliaries can adjust decomposition temperature and rate, improve processability, and stabilize cells. The final goal is to match polymer, processing temperature, gas yield, residue, and safety to obtain a uniform and fine cell structure."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 65.734,
+                  "en": 85.991
+            },
+            "alt": "第48张：9.3 发泡剂"
+      },
+      {
+            "id": "slide049",
+            "index": 49,
+            "number": "9.4",
+            "title": "9.4 着色剂",
+            "titleEn": "9.4 Colorants",
+            "image": "player_assets/slide049.webp",
+            "audio": {
+                  "zh": "player_assets/slide049_zh.mp3",
+                  "en": "player_assets/slide049_en.mp3"
+            },
+            "subtitle": {
+                  "zh": "player_assets/slide049_zh.vtt",
+                  "en": "player_assets/slide049_en.vtt"
+            },
+            "cues": {
+                  "zh": [
+                        {
+                              "start": 0,
+                              "end": 31560,
+                              "text": "着色剂赋予塑料制品丰富的颜色和外观，主要分为不溶性的颜料和可溶性的染料。 颜料又包括钛白、氧化铁、铬黄、酞菁蓝和炭黑等无机或有机品种； 染料则有蒽醌、苯胺油溶性和金属配合物等类型。 评价着色剂要看着色力、遮盖力和分散性，还要考察耐热、耐候、耐迁移、化学稳定、电气性能和毒性。"
+                        },
+                        {
+                              "start": 31560,
+                              "end": 59088,
+                              "text": "加工温度高时应避免热变色； 户外制品需要耐光耐雨； 电缆着色剂不能明显损害绝缘； 食品包装和玩具必须符合安全法规。 应用形式包括颗粒状色料、干色料和湿润性色料。 色母粒由高浓度颜料与树脂制成，分散好、使用方便且少粉尘； 干色料成本较低但易飞扬、计量和分散较难；"
+                        },
+                        {
+                              "start": 59088,
+                              "end": 66720,
+                              "text": "湿润性色料无飞散、用途广。 正确选型和合理分散可提升制品质量与寿命。"
+                        }
+                  ],
+                  "en": [
+                        {
+                              "start": 0,
+                              "end": 24888,
+                              "text": "Colorants give plastic products rich color and appearance. They are mainly divided into insoluble pigments and soluble dyes. Pigments include inorganic and organic types such as titanium white, iron oxide, chrome yellow, phthalocyanine blue, and carbon black. Dyes include anthraquinone, aniline oil-soluble dyes, and metal complex dyes."
+                        },
+                        {
+                              "start": 24888,
+                              "end": 56352,
+                              "text": "Evaluation of a colorant includes tinting strength, hiding power, and dispersibility, as well as heat resistance, weather resistance, migration resistance, chemical stability, electrical properties, and toxicity. At high processing temperature, thermal discoloration should be avoided. Outdoor products need resistance to light and rain. Colorants for cables should not significantly damage insulation. Food packaging and toys must meet safety regulations."
+                        },
+                        {
+                              "start": 56352,
+                              "end": 83856,
+                              "text": "Application forms include granular colorants, dry colorants, and wet colorants. Masterbatch is made from high-concentration pigment and resin. It has good dispersion, convenient use, and little dust. Dry colorants are low-cost but dusty and harder to measure and disperse. Wet colorants have no dust and broad use. Correct selection and good dispersion can improve product quality and service life."
+                        }
+                  ]
+            },
+            "duration": {
+                  "zh": 66.72,
+                  "en": 83.856
+            },
+            "alt": "第49张：9.4 着色剂"
+      }
+];
+    const image = document.getElementById('slideImage');
+    const title = document.getElementById('title');
+    const kicker = document.getElementById('kicker');
+    const counter = document.getElementById('counter');
+    const topicSelect = document.getElementById('topicSelect');
+    const prevBtn = document.getElementById('prevBtn');
+    const playBtn = document.getElementById('playBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const voiceZhBtn = document.getElementById('voiceZhBtn');
+    const voiceEnBtn = document.getElementById('voiceEnBtn');
+    const subZhBtn = document.getElementById('subZhBtn');
+    const subEnBtn = document.getElementById('subEnBtn');
+    const subOffBtn = document.getElementById('subOffBtn');
+    const panelToggleBtn = document.getElementById('panelToggleBtn');
+    const audio = document.getElementById('audio');
+    const caption = document.getElementById('caption');
+    const pageProgress = document.getElementById('pageProgress');
+    const currentTime = document.getElementById('currentTime');
+    const duration = document.getElementById('duration');
+    const totalTime = document.getElementById('totalTime');
+    const totalFill = document.getElementById('totalFill');
+    let currentIndex = 0;
+    let voiceLang = 'zh';
+    let subtitleLang = 'zh';
+    let continuous = false;
+    let seeking = false;
+    let cues = [];
+    let controlsCollapsed = false;
+
+    slides.forEach((slide, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `${String(index + 1).padStart(2, '0')} - ${slide.title}`;
+      topicSelect.appendChild(option);
+    });
+
+    function formatTime(value) {
+      if (!Number.isFinite(value)) return '00:00';
+      const total = Math.max(0, Math.floor(value));
+      return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    }
+
+    function slideDuration(index, lang = voiceLang) {
+      return slides[index].duration[lang] || 0;
+    }
+
+    function totalDuration() {
+      return slides.reduce((sum, slide) => sum + (slide.duration[voiceLang] || 0), 0);
+    }
+
+    function elapsedBefore(index) {
+      return slides.slice(0, index).reduce((sum, slide) => sum + (slide.duration[voiceLang] || 0), 0);
+    }
+
+    function updateTotalProgress() {
+      const current = elapsedBefore(currentIndex) + (Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+      const total = totalDuration();
+      const percent = total ? Math.min(100, (current / total) * 100) : 0;
+      totalFill.style.width = `${percent}%`;
+      totalTime.textContent = `${formatTime(current)} / ${formatTime(total)}`;
+    }
+
+    function updateCaption() {
+      if (subtitleLang === 'off' || !cues.length) {
+        caption.textContent = '';
+        caption.classList.remove('visible');
+        return;
+      }
+      const now = (audio.currentTime || 0) * 1000;
+      const cue = cues.find((item) => now >= item.start && now <= item.end);
+      if (cue) {
+        caption.textContent = cue.text;
+        caption.classList.add('visible');
+      } else {
+        caption.textContent = '';
+        caption.classList.remove('visible');
+      }
+    }
+
+    function updatePageProgress() {
+      const knownDuration = Number.isFinite(audio.duration) ? audio.duration : slideDuration(currentIndex);
+      currentTime.textContent = formatTime(audio.currentTime || 0);
+      duration.textContent = formatTime(knownDuration);
+      if (!seeking && knownDuration) {
+        pageProgress.value = Math.round(((audio.currentTime || 0) / knownDuration) * 1000);
+      }
+      updateTotalProgress();
+      updateCaption();
+    }
+
+    function loadCaptions() {
+      cues = [];
+      updateCaption();
+      if (subtitleLang === 'off') return;
+      const slide = slides[currentIndex];
+      cues = (slide.cues && slide.cues[subtitleLang]) ? slide.cues[subtitleLang] : [];
+      updateCaption();
+    }
+
+    function setActiveButtons() {
+      voiceZhBtn.classList.toggle('active', voiceLang === 'zh');
+      voiceEnBtn.classList.toggle('active', voiceLang === 'en');
+      subZhBtn.classList.toggle('active', subtitleLang === 'zh');
+      subEnBtn.classList.toggle('active', subtitleLang === 'en');
+      subOffBtn.classList.toggle('active', subtitleLang === 'off');
+    }
+
+    function preloadAround(index) {
+      [index + 1, index + 2].forEach((target) => {
+        if (!slides[target]) return;
+        const nextImage = new Image();
+        nextImage.decoding = 'async';
+        nextImage.src = slides[target].image;
+        const nextAudio = document.createElement('audio');
+        nextAudio.preload = 'metadata';
+        nextAudio.src = slides[target].audio[voiceLang];
+      });
+    }
+
+    function setSlide(index, shouldPlay = false) {
+      currentIndex = Math.max(0, Math.min(slides.length - 1, index));
+      const slide = slides[currentIndex];
+      audio.pause();
+      image.src = slide.image;
+      image.alt = slide.alt;
+      title.textContent = slide.title;
+      kicker.textContent = `第 ${currentIndex + 1} 张 / 共 ${slides.length} 张`;
+      counter.textContent = `${currentIndex + 1} / ${slides.length}`;
+      topicSelect.value = String(currentIndex);
+      audio.src = slide.audio[voiceLang];
+      audio.load();
+      pageProgress.value = 0;
+      currentTime.textContent = '00:00';
+      duration.textContent = formatTime(slideDuration(currentIndex));
+      updateTotalProgress();
+      loadCaptions();
+      preloadAround(currentIndex);
+      if (shouldPlay) {
+        continuous = true;
+        audio.play().catch(() => {});
+      } else {
+        playBtn.textContent = '连续播放';
+      }
+    }
+
+    function setVoice(lang) {
+      if (voiceLang === lang) return;
+      const wasPlaying = !audio.paused;
+      const oldDuration = Number.isFinite(audio.duration) ? audio.duration : slideDuration(currentIndex, voiceLang);
+      const ratio = oldDuration ? (audio.currentTime || 0) / oldDuration : 0;
+      voiceLang = lang;
+      setActiveButtons();
+      const slide = slides[currentIndex];
+      audio.pause();
+      audio.src = slide.audio[voiceLang];
+      audio.load();
+      audio.addEventListener('loadedmetadata', function restorePosition() {
+        audio.removeEventListener('loadedmetadata', restorePosition);
+        if (Number.isFinite(audio.duration) && ratio > 0) {
+          audio.currentTime = Math.min(audio.duration - 0.2, Math.max(0, ratio * audio.duration));
+        }
+        updatePageProgress();
+        if (wasPlaying) audio.play().catch(() => {});
+      });
+      updateTotalProgress();
+    }
+
+    function setSubtitle(lang) {
+      subtitleLang = lang;
+      setActiveButtons();
+      loadCaptions();
+    }
+
+    function setControlsCollapsed(collapsed) {
+      controlsCollapsed = collapsed;
+      document.body.classList.toggle('controls-collapsed', controlsCollapsed);
+      panelToggleBtn.textContent = controlsCollapsed ? '展开' : '折叠';
+      panelToggleBtn.setAttribute('aria-expanded', String(!controlsCollapsed));
+      panelToggleBtn.setAttribute('aria-label', controlsCollapsed ? '展开播放控制区' : '折叠播放控制区');
+      requestAnimationFrame(updatePageProgress);
+    }
+
+    topicSelect.addEventListener('change', () => setSlide(Number(topicSelect.value), true));
+    prevBtn.addEventListener('click', () => setSlide(currentIndex - 1, !audio.paused || continuous));
+    nextBtn.addEventListener('click', () => setSlide(currentIndex + 1, !audio.paused || continuous));
+    voiceZhBtn.addEventListener('click', () => setVoice('zh'));
+    voiceEnBtn.addEventListener('click', () => setVoice('en'));
+    subZhBtn.addEventListener('click', () => setSubtitle('zh'));
+    subEnBtn.addEventListener('click', () => setSubtitle('en'));
+    subOffBtn.addEventListener('click', () => setSubtitle('off'));
+    panelToggleBtn.addEventListener('click', () => setControlsCollapsed(!controlsCollapsed));
+    playBtn.addEventListener('click', () => {
+      continuous = true;
+      if (audio.paused) {
+        audio.play().catch(() => {});
+      } else {
+        audio.pause();
+      }
+    });
+    audio.addEventListener('play', () => { playBtn.textContent = '暂停'; });
+    audio.addEventListener('pause', () => { if (!audio.ended) playBtn.textContent = '连续播放'; });
+    audio.addEventListener('loadedmetadata', updatePageProgress);
+    audio.addEventListener('timeupdate', updatePageProgress);
+    audio.addEventListener('ended', () => {
+      updatePageProgress();
+      if (continuous && currentIndex < slides.length - 1) {
+        setSlide(currentIndex + 1, true);
+      } else {
+        continuous = false;
+        playBtn.textContent = '连续播放';
+      }
+    });
+    pageProgress.addEventListener('input', () => {
+      seeking = true;
+      const knownDuration = Number.isFinite(audio.duration) ? audio.duration : slideDuration(currentIndex);
+      currentTime.textContent = formatTime((Number(pageProgress.value) / 1000) * knownDuration);
+    });
+    pageProgress.addEventListener('change', () => {
+      if (Number.isFinite(audio.duration)) {
+        audio.currentTime = (Number(pageProgress.value) / 1000) * audio.duration;
+      }
+      seeking = false;
+      updatePageProgress();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (['INPUT', 'SELECT', 'BUTTON'].includes(event.target.tagName)) return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        playBtn.click();
+      }
+      if (event.key === 'ArrowLeft') prevBtn.click();
+      if (event.key === 'ArrowRight') nextBtn.click();
+    });
+    setActiveButtons();
+    setSlide(0, false);
+  </script>
+</body>
+</html>
